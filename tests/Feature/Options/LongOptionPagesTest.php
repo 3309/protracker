@@ -124,6 +124,32 @@ describe('a bought option\'s page', function () {
         expect(OptionEvent::count())->toBe(0);
     });
 
+    it('corrects the purchase itself, recalculating its closes, and voids an unclosed purchase', function () {
+        $sale = recordSellToClose($this->call, '2026-07-10', 2, '3.00', '1.34');
+
+        $this->get(route('options.show', $this->call))->assertSee(route('options.edit', $this->call));
+
+        Livewire::test('pages::options.edit', ['optionPosition' => $this->call])
+            ->assertSee('Void purchase')
+            ->set('form.premium_per_share', '1.50')
+            ->set('form.reason', 'Premium from the broker statement')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSee('Option purchase saved.');
+
+        expect($this->call->fresh()?->side)->toBe(OptionSide::Long)
+            ->and($sale->fresh()?->netProfit()->format())->toBe('$297.32');
+
+        $unclosed = recordBuyToOpen($this->account, OptionType::Put, 'TSLA', '200', '2026-07-17', '2026-07-02', 1, '2.00', '0.67');
+
+        Livewire::test('pages::options.edit', ['optionPosition' => $unclosed])
+            ->set('form.reason', 'Entered by mistake')
+            ->call('void')
+            ->assertSee('Option purchase voided.');
+
+        expect($unclosed->fresh()?->isVoided())->toBeTrue();
+    });
+
     it('corrects a sale to close on the event page', function () {
         $sale = recordSellToClose($this->call, '2026-07-10', 2, '3.00', '1.34');
 

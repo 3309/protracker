@@ -20,7 +20,7 @@ new #[Title('Correct option trade')] class extends Component
 
     public function mount(OptionPosition $optionPosition): void
     {
-        abort_unless($optionPosition->origin === PositionOrigin::SellToOpen, 404);
+        abort_unless(in_array($optionPosition->origin, [PositionOrigin::SellToOpen, PositionOrigin::BuyToOpen], true), 404);
 
         $this->optionPosition = $optionPosition;
         $this->form->setOptionPosition($optionPosition);
@@ -40,7 +40,7 @@ new #[Title('Correct option trade')] class extends Component
 
         unset($this->auditEntries);
 
-        session()->now('message', 'Option sale saved. Realized profit of its closes has been recalculated.');
+        session()->now('message', ($this->optionPosition->isLong() ? 'Option purchase' : 'Option sale').' saved. Realized profit of its closes has been recalculated.');
     }
 
     public function void(SaveOptionTrade $saveOptionTrade): void
@@ -49,7 +49,7 @@ new #[Title('Correct option trade')] class extends Component
 
         $this->validate(
             ['form.reason' => ['required', 'string', 'max:1000']],
-            ['form.reason.required' => 'Please explain why you are voiding this sale. It is saved in the audit history.'],
+            ['form.reason.required' => 'Please explain why you are voiding this '.($this->optionPosition->isLong() ? 'purchase' : 'sale').'. It is saved in the audit history.'],
         );
 
         try {
@@ -65,7 +65,7 @@ new #[Title('Correct option trade')] class extends Component
 
         unset($this->auditEntries);
 
-        session()->now('message', 'Option sale voided. It is kept in the history but no longer counts.');
+        session()->now('message', ($this->optionPosition->isLong() ? 'Option purchase' : 'Option sale').' voided. It is kept in the history but no longer counts.');
     }
 
     /**
@@ -104,7 +104,7 @@ new #[Title('Correct option trade')] class extends Component
     @endif
 
     @if ($optionPosition->isVoided())
-        <x-alert level="info" title="Voided">This sale was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</x-alert>
+        <x-alert level="info" title="Voided">This {{ $optionPosition->isLong() ? 'purchase' : 'sale' }} was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</x-alert>
     @else
         <form wire:submit="save" wire:confirm="Save this correction? Realized profit of any closes of this position will be recalculated." class="card flex flex-col gap-6">
             @include('partials.sell-to-open-fields', ['optionPosition' => $optionPosition])
@@ -118,7 +118,7 @@ new #[Title('Correct option trade')] class extends Component
 
             <div class="flex flex-wrap gap-3">
                 <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save changes</button>
-                <button type="button" wire:click="void" wire:confirm="Void this sale? It stays in the history but no longer counts." class="btn-danger">Void sale</button>
+                <button type="button" wire:click="void" wire:confirm="Void this {{ $optionPosition->isLong() ? 'purchase' : 'sale' }}? It stays in the history but no longer counts." class="btn-danger">Void {{ $optionPosition->isLong() ? 'purchase' : 'sale' }}</button>
             </div>
         </form>
     @endif
