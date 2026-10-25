@@ -18,7 +18,7 @@ new #[Title('Stock trades')] class extends ReportPage
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['account', 'year', 'from', 'to'], true)) {
+        if (in_array($property, ['account', 'broker', 'ticker', 'year', 'from', 'to'], true)) {
             $this->resetPage();
         }
     }
@@ -70,6 +70,7 @@ new #[Title('Stock trades')] class extends ReportPage
         $query = StockTrade::query()->with('account');
 
         $this->applyAccountFilter($query);
+        $this->applyTickerFilter($query);
         $this->reportingPeriod?->applyTo($query, 'trade_date');
 
         if ($this->reportingPeriod === null) {

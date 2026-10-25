@@ -1,4 +1,4 @@
-{{-- Filters for pages extending App\Livewire\ReportPage. Set $showPeriod to false to hide the period controls, and $showBrokerAndTicker to true to add broker and ticker filters. --}}
+{{-- Filters for pages extending App\Livewire\ReportPage. Broker and ticker filters are shown unless $showBroker or $showTicker is false; set $showPeriod to false to hide the period controls. --}}
 <div class="card flex flex-wrap items-end gap-4">
     <div>
         <label for="filter_account" class="form-label">Account</label>
@@ -12,7 +12,7 @@
         </select>
     </div>
 
-    @if ($showBrokerAndTicker ?? false)
+    @if ($showBroker ?? true)
         <div>
             <label for="filter_broker" class="form-label">Broker</label>
             <select id="filter_broker" wire:model.live="broker" class="form-input">
@@ -22,7 +22,9 @@
                 @endforeach
             </select>
         </div>
+    @endif
 
+    @if ($showTicker ?? true)
         <div>
             <label for="filter_ticker" class="form-label">Ticker</label>
             <input id="filter_ticker" type="text" wire:model.live.debounce.500ms="ticker" class="form-input uppercase" placeholder="All tickers">

@@ -89,7 +89,7 @@ new #[Title('Cash reconciliation')] class extends ReportPage
         <div class="status-message">{{ session('message') }}</div>
     @endif
 
-    @include('partials.report-filters', ['showPeriod' => false])
+    @include('partials.report-filters', ['showPeriod' => false, 'showTicker' => false])
 
     <form wire:submit="save" class="card flex flex-col gap-4">
         <h2 class="text-lg font-semibold">Enter a broker balance</h2>

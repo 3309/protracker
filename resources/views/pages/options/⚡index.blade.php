@@ -25,6 +25,7 @@ new #[Title('Options')] class extends ReportPage
         $query = OptionPosition::query()->with('account')->withClosedContracts();
 
         $this->applyAccountFilter($query);
+        $this->applyTickerFilter($query, 'underlying');
 
         if ($this->status === 'closed') {
             $query->notVoided()->closed();

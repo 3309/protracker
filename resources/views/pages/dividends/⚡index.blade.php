@@ -25,6 +25,7 @@ new #[Title('Dividends')] class extends ReportPage
         $query = Dividend::query()->with('account');
 
         $this->applyAccountFilter($query);
+        $this->applyTickerFilter($query);
         $this->reportingPeriod->applyTo($query, 'pay_date');
 
         return $query->orderBy('pay_date')->orderBy('ticker')->orderBy('id')->get();

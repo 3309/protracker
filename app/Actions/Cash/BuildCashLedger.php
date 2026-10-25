@@ -39,15 +39,20 @@ use Illuminate\Support\Collection;
  */
 class BuildCashLedger
 {
-    public function handle(?int $accountId = null): CashLedger
+    /**
+     * @param  int|list<int>|null  $accountId  one account, several, or null for all accounts
+     */
+    public function handle(int|array|null $accountId = null): CashLedger
     {
+        $accountIds = is_int($accountId) ? [$accountId] : $accountId;
+
         $entries = [
-            ...$this->openingEntries($accountId)->all(),
-            ...$this->stockTradeEntries($accountId)->all(),
-            ...$this->optionPremiumEntries($accountId)->all(),
-            ...$this->optionBuyBackEntries($accountId)->all(),
-            ...$this->dividendEntries($accountId)->all(),
-            ...$this->cashMovementEntries($accountId)->all(),
+            ...$this->openingEntries($accountIds)->all(),
+            ...$this->stockTradeEntries($accountIds)->all(),
+            ...$this->optionPremiumEntries($accountIds)->all(),
+            ...$this->optionBuyBackEntries($accountIds)->all(),
+            ...$this->dividendEntries($accountIds)->all(),
+            ...$this->cashMovementEntries($accountIds)->all(),
         ];
 
         usort($entries, fn (CashLedgerEntry $a, CashLedgerEntry $b): int => $this->sortKey($a) <=> $this->sortKey($b));
@@ -69,11 +74,12 @@ class BuildCashLedger
      * Opening cash. When the unsettled part is known, it is assumed to settle
      * on the first trading day on or after the reporting start date.
      *
+     * @param  list<int>|null  $accountIds
      * @return Collection<int, CashLedgerEntry>
      */
-    private function openingEntries(?int $accountId): Collection
+    private function openingEntries(?array $accountIds): Collection
     {
-        return $this->forAccount(AccountOpening::query()->whereNotNull('cash_balance'), $accountId)->get()->toBase()
+        return $this->forAccounts(AccountOpening::query()->whereNotNull('cash_balance'), $accountIds)->get()->toBase()
             ->flatMap(function (AccountOpening $opening): array {
                 $cash = $opening->cash_balance ?? Money::zero();
                 $unsettled = $opening->unsettled_cash ?? Money::zero();
@@ -111,11 +117,12 @@ class BuildCashLedger
     }
 
     /**
+     * @param  list<int>|null  $accountIds
      * @return Collection<int, CashLedgerEntry>
      */
-    private function stockTradeEntries(?int $accountId): Collection
+    private function stockTradeEntries(?array $accountIds): Collection
     {
-        return $this->forAccount(StockTrade::query()->notVoided(), $accountId)->get()
+        return $this->forAccounts(StockTrade::query()->notVoided(), $accountIds)->get()
             ->map(function (StockTrade $trade): CashLedgerEntry {
                 $isBuy = $trade->side === TradeSide::Buy;
                 $gross = $trade->grossAmount();
@@ -142,11 +149,12 @@ class BuildCashLedger
     }
 
     /**
+     * @param  list<int>|null  $accountIds
      * @return Collection<int, CashLedgerEntry>
      */
-    private function optionPremiumEntries(?int $accountId): Collection
+    private function optionPremiumEntries(?array $accountIds): Collection
     {
-        return $this->forAccount(OptionPosition::query()->notVoided()->where('origin', '!=', PositionOrigin::OpeningBalance), $accountId)->get()
+        return $this->forAccounts(OptionPosition::query()->notVoided()->where('origin', '!=', PositionOrigin::OpeningBalance), $accountIds)->get()
             ->map(fn (OptionPosition $position): CashLedgerEntry => new CashLedgerEntry(
                 $position->account_id,
                 CashCategory::OptionPremium,
@@ -161,16 +169,17 @@ class BuildCashLedger
     }
 
     /**
+     * @param  list<int>|null  $accountIds
      * @return Collection<int, CashLedgerEntry>
      */
-    private function optionBuyBackEntries(?int $accountId): Collection
+    private function optionBuyBackEntries(?array $accountIds): Collection
     {
         $query = OptionEvent::query()
             ->with('position')
             ->notVoided()
             ->whereIn('event_type', [OptionEventType::BuyToClose, OptionEventType::Rolled]);
 
-        return $this->forAccount($query, $accountId)->get()
+        return $this->forAccounts($query, $accountIds)->get()
             ->map(fn (OptionEvent $event): CashLedgerEntry => new CashLedgerEntry(
                 $event->account_id,
                 CashCategory::OptionBuyBack,
@@ -185,11 +194,12 @@ class BuildCashLedger
     }
 
     /**
+     * @param  list<int>|null  $accountIds
      * @return Collection<int, CashLedgerEntry>
      */
-    private function dividendEntries(?int $accountId): Collection
+    private function dividendEntries(?array $accountIds): Collection
     {
-        return $this->forAccount(Dividend::query()->notVoided()->whereNotNull('actual_amount'), $accountId)->get()
+        return $this->forAccounts(Dividend::query()->notVoided()->whereNotNull('actual_amount'), $accountIds)->get()
             ->map(fn (Dividend $dividend): CashLedgerEntry => new CashLedgerEntry(
                 $dividend->account_id,
                 CashCategory::Dividend,
@@ -204,11 +214,12 @@ class BuildCashLedger
     }
 
     /**
+     * @param  list<int>|null  $accountIds
      * @return Collection<int, CashLedgerEntry>
      */
-    private function cashMovementEntries(?int $accountId): Collection
+    private function cashMovementEntries(?array $accountIds): Collection
     {
-        return $this->forAccount(CashMovement::query()->notVoided(), $accountId)->get()
+        return $this->forAccounts(CashMovement::query()->notVoided(), $accountIds)->get()
             ->map(fn (CashMovement $movement): CashLedgerEntry => new CashLedgerEntry(
                 $movement->account_id,
                 CashCategory::fromMovementType($movement->movement_type),
@@ -226,10 +237,11 @@ class BuildCashLedger
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
      * @param  Builder<TModel>  $query
+     * @param  list<int>|null  $accountIds
      * @return Builder<TModel>
      */
-    private function forAccount(Builder $query, ?int $accountId): Builder
+    private function forAccounts(Builder $query, ?array $accountIds): Builder
     {
-        return $accountId === null ? $query : $query->where('account_id', $accountId);
+        return $accountIds === null ? $query : $query->whereIn('account_id', $accountIds);
     }
 }

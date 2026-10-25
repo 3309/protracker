@@ -218,7 +218,7 @@ new #[Title('Dashboard')] class extends ReportPage
         @endif
     </div>
 
-    @include('partials.report-filters', ['showBrokerAndTicker' => true])
+    @include('partials.report-filters')
 
     {{-- Data-quality alerts --}}
     <section class="card flex flex-col gap-2">

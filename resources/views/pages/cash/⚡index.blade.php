@@ -17,7 +17,7 @@ new #[Title('Cash')] class extends ReportPage
     #[Computed]
     public function ledger(): CashLedger
     {
-        return app(BuildCashLedger::class)->handle($this->account !== '' ? (int) $this->account : null);
+        return app(BuildCashLedger::class)->handle($this->filteredAccountIds());
     }
 
     /**
@@ -97,7 +97,7 @@ new #[Title('Cash')] class extends ReportPage
         </div>
     </div>
 
-    @include('partials.report-filters')
+    @include('partials.report-filters', ['showTicker' => false])
 
     @if ($this->reportingPeriod !== null)
         @php

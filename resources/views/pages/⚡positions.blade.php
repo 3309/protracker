@@ -43,6 +43,7 @@ new #[Title('Positions')] class extends ReportPage
             ->withSoldShares($this->asOfDate);
 
         $this->applyAccountFilter($query);
+        $this->applyTickerFilter($query);
 
         return $query->get()
             ->filter(fn (StockLot $lot) => $lot->remainingShares()->units > 0)
