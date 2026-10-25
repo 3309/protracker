@@ -9,6 +9,7 @@ use App\Exceptions\ImportFileException;
 use App\Models\Account;
 use App\Models\ImportBatch;
 use App\Support\Imports\CsvFile;
+use App\Support\Imports\FidelityFormat;
 use App\Support\Imports\ImportFormat;
 use App\Support\Imports\TemplateFormat;
 use Illuminate\Support\Facades\DB;
@@ -49,8 +50,16 @@ class PreviewImport
                 'row_count' => count($file['rows']),
             ]);
 
+            $normalizedRows = [];
+
             foreach ($file['rows'] as $line) {
-                $normalized = $format->normalize($line['values']);
+                $normalizedRows[$line['number']] = $format->normalize($line['values']);
+            }
+
+            $normalizedRows = $format->combine($normalizedRows);
+
+            foreach ($file['rows'] as $line) {
+                $normalized = $normalizedRows[$line['number']];
 
                 $batch->rows()->create([
                     'row_number' => $line['number'],
@@ -77,6 +86,7 @@ class PreviewImport
     {
         return match ($formatType) {
             ImportFormatType::Template => new TemplateFormat,
+            ImportFormatType::Fidelity => new FidelityFormat,
             default => throw new ImportFileException("The {$formatType->label()} format is not available yet: it will be built from a real sample export."),
         };
     }

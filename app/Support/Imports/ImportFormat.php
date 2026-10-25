@@ -26,4 +26,13 @@ interface ImportFormat
      * @return array{action: ImportAction|null, data: array<string, string>, messages: list<string>}
      */
     public function normalize(array $raw): array;
+
+    /**
+     * Adjust rows that can only be understood together, once every row of
+     * the file has been normalized.
+     *
+     * @param  array<int, array{action: ImportAction|null, data: array<string, string>, messages: list<string>}>  $rows  keyed by line number
+     * @return array<int, array{action: ImportAction|null, data: array<string, string>, messages: list<string>}>
+     */
+    public function combine(array $rows): array;
 }

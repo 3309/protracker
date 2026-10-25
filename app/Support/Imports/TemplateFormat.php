@@ -90,6 +90,14 @@ final class TemplateFormat implements ImportFormat
     }
 
     /**
+     * Template rows say exactly what they are, so nothing changes.
+     */
+    public function combine(array $rows): array
+    {
+        return $rows;
+    }
+
+    /**
      * "$1,234.50" → "1234.50", "(0.65)" → "-0.65". Anything else is left as
      * it is so the row checker can report it.
      */

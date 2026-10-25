@@ -66,7 +66,7 @@ describe('uploading', function () {
 
         $page->set($field, $value)->call('preview')->assertHasErrors($field);
     })->with([
-        'Fidelity before a sample exists' => ['format', 'fidelity'],
+        'Robinhood before a sample exists' => ['format', 'robinhood'],
         'a PDF' => ['file', fn () => UploadedFile::fake()->create('statement.pdf', 10, 'application/pdf')],
         'no account' => ['account_id', ''],
     ]);

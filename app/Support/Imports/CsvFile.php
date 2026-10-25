@@ -5,7 +5,8 @@ namespace App\Support\Imports;
 use App\Exceptions\ImportFileException;
 
 /**
- * Reads a CSV file into its header and rows. Blank lines are skipped. Each
+ * Reads a CSV file into its header and rows. Blank lines and repeats of the
+ * header (from exports pasted together) are skipped. Each
  * row is returned with its line number and its values keyed by header.
  */
 final class CsvFile
@@ -35,6 +36,10 @@ final class CsvFile
             if ($header === null) {
                 $header = array_map(fn (string $column) => trim($column), $values);
 
+                continue;
+            }
+
+            if ($values === $header) {
                 continue;
             }
 

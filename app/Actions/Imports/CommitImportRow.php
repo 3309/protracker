@@ -16,6 +16,7 @@ use App\Models\CashMovement;
 use App\Models\Dividend;
 use App\Models\ImportRow;
 use App\Models\OptionPosition;
+use App\Models\StockTrade;
 use App\Support\DividendRate;
 use App\Support\MarketCalendar;
 use App\Support\Money;
@@ -57,25 +58,7 @@ class CommitImportRow
             $record = match (true) {
                 $action->isStockTrade() => $this->stockTrade($row, $action, $account),
                 $action === ImportAction::SellToOpen => $this->sellToOpen($row, $account),
-                $action === ImportAction::BuyToClose => $this->saveOptionTrade->buyToClose($this->openPosition($row, $account), [
-                    'event_date' => $row->value('date'),
-                    'settlement_date' => $this->settlementDate($row),
-                    'settlement_date_overridden' => $row->value('settlement_date') !== '',
-                    'contracts' => $this->contracts($row),
-                    'price_per_share' => UnitPrice::fromDecimal($row->value('price')),
-                    'fees' => $this->fees($row) ?? $account->option_fee_per_contract->times($this->contracts($row)),
-                    'reference_note' => $this->note($row),
-                ]),
-                $action === ImportAction::Expired => $this->saveOptionTrade->expire($this->openPosition($row, $account), [
-                    'event_date' => $row->value('date'),
-                    'contracts' => $this->contracts($row),
-                    'reference_note' => $this->note($row),
-                ]),
-                $action === ImportAction::Assigned => $this->saveOptionTrade->assign($this->openPosition($row, $account), [
-                    'event_date' => $row->value('date'),
-                    'contracts' => $this->contracts($row),
-                    'reference_note' => $this->note($row),
-                ], $this->fees($row) ?? $account->assignment_fee),
+                $action->closesOption() => $this->closeOption($row, $action, $account),
                 $action === ImportAction::Dividend => $this->dividend($row, $account),
                 default => CashMovement::create([
                     'account_id' => $account->id,
@@ -176,6 +159,7 @@ class CommitImportRow
 
             $rate = (new Number($amount->cents))->div(100, 10)->div($eligible->toNumber(), 10)->round(6, RoundingMode::HalfAwayFromZero);
             $dividend->amount_per_share = DividendRate::fromDecimal($rate->value);
+            $this->ensurePlausibleDividend($dividend, $account);
         }
 
         $dividend->save();
@@ -185,14 +169,90 @@ class CommitImportRow
     }
 
     /**
-     * The one open option in the account matching the row's contract with
-     * enough open contracts.
+     * A worked-out dividend of more than 10% of the last price paid for the
+     * shares in one payment is far outside normal dividends: it is more
+     * likely a stock split or another corporate action listed as a dividend,
+     * so it is not imported. Entering the amount per share skips this check.
      *
      * @throws ImportRowException
      */
-    private function openPosition(ImportRow $row, Account $account): OptionPosition
+    private function ensurePlausibleDividend(Dividend $dividend, Account $account): void
     {
-        $matches = OptionPosition::query()
+        $lastPurchase = StockTrade::query()
+            ->notVoided()
+            ->where('account_id', $account->id)
+            ->where('ticker', $dividend->ticker)
+            ->where('side', TradeSide::Buy)
+            ->where('trade_date', '<=', $dividend->ex_date->format('Y-m-d'))
+            ->orderByDesc('trade_date')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($lastPurchase === null || $dividend->amount_per_share->toNumber()->compare($lastPurchase->price_per_share->toNumber()->mul('0.1')) <= 0) {
+            return;
+        }
+
+        throw new ImportRowException("This works out to {$dividend->amount_per_share->format()} per share, more than 10% of the last price paid for {$dividend->ticker} ({$lastPurchase->price_per_share->format()}). It may be a stock split or another corporate action listed as a dividend, which Protracker does not handle. Check it: skip it, or if it really is a dividend, enter the amount per share in the price field.");
+    }
+
+    /**
+     * Buy to close, expire or assign the row's contracts. When several open
+     * options in the account have the same contract, the oldest is closed
+     * first, as brokers do, and a row closing more contracts than it holds
+     * continues into the next; the fees are shared by contracts. The row is
+     * linked to the first event.
+     *
+     * @throws ImportRowException
+     * @throws InsufficientSharesException
+     * @throws OptionPositionException
+     */
+    private function closeOption(ImportRow $row, ImportAction $action, Account $account): Model
+    {
+        $contracts = $this->contracts($row);
+        $parts = $this->positionsToClose($row, $account, $contracts);
+        $fees = $this->fees($row) ?? match ($action) {
+            ImportAction::BuyToClose => $account->option_fee_per_contract->times($contracts),
+            default => $account->assignment_fee,
+        };
+        $feesLeft = $fees;
+        $events = [];
+
+        foreach ($parts as $index => $part) {
+            $partFees = $index === array_key_last($parts) ? $feesLeft : $fees->share($part['contracts'], $contracts);
+            $feesLeft = $feesLeft->minus($partFees);
+            $attributes = [
+                'event_date' => $row->value('date'),
+                'contracts' => $part['contracts'],
+                'reference_note' => $this->note($row).(count($parts) > 1 ? ' (part '.($index + 1).' of '.count($parts).')' : ''),
+            ];
+
+            $events[] = match ($action) {
+                ImportAction::BuyToClose => $this->saveOptionTrade->buyToClose($part['position'], [
+                    ...$attributes,
+                    'settlement_date' => $this->settlementDate($row),
+                    'settlement_date_overridden' => $row->value('settlement_date') !== '',
+                    'price_per_share' => UnitPrice::fromDecimal($row->value('price')),
+                    'fees' => $partFees,
+                ]),
+                ImportAction::Expired => $this->saveOptionTrade->expire($part['position'], $attributes),
+                default => $this->saveOptionTrade->assign($part['position'], $attributes, $partFees),
+            };
+        }
+
+        return $events[0];
+    }
+
+    /**
+     * The open options in the account matching the row's contract, oldest
+     * first, and how many of the row's contracts each one closes.
+     *
+     * @return non-empty-list<array{position: OptionPosition, contracts: int}>
+     *
+     * @throws ImportRowException
+     */
+    private function positionsToClose(ImportRow $row, Account $account, int $contracts): array
+    {
+        $positions = OptionPosition::query()
             ->where('account_id', $account->id)
             ->where('underlying', $row->value('symbol'))
             ->where('option_type', $row->value('option_type'))
@@ -200,16 +260,31 @@ class CommitImportRow
             ->where('expires_on', $row->value('expiration'))
             ->notVoided()
             ->open()
-            ->get()
-            ->filter(fn (OptionPosition $position) => $position->openContracts() >= $this->contracts($row));
+            ->orderBy('opened_on')
+            ->orderBy('id')
+            ->get();
 
-        if ($matches->count() !== 1) {
-            throw new ImportRowException($matches->isEmpty()
-                ? 'No open option in this account matches this contract with enough open contracts.'
-                : 'More than one open option matches this contract, so the row cannot be matched safely. Record it by hand.');
+        $parts = [];
+        $remaining = $contracts;
+
+        foreach ($positions as $position) {
+            $closing = min($remaining, $position->openContracts());
+
+            if ($closing > 0) {
+                $parts[] = ['position' => $position, 'contracts' => $closing];
+                $remaining -= $closing;
+            }
+
+            if ($remaining === 0) {
+                break;
+            }
         }
 
-        return $matches->first();
+        if ($parts === [] || $remaining > 0) {
+            throw new ImportRowException('The open options in this account matching this contract do not have enough open contracts.');
+        }
+
+        return $parts;
     }
 
     private function contracts(ImportRow $row): int

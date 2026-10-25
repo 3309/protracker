@@ -5,8 +5,9 @@ namespace App\Enums;
 /**
  * The layout of an uploaded CSV file.
  *
- * Fidelity and Robinhood are listed but not yet supported: their mappings
- * are built only from real sample exports, never guessed.
+ * Broker mappings are built only from real sample exports, never guessed:
+ * Fidelity is built from a sample activity file; Robinhood is listed but
+ * not yet supported.
  */
 enum ImportFormatType: string
 {
@@ -18,13 +19,13 @@ enum ImportFormatType: string
     {
         return match ($this) {
             self::Template => 'Protracker template',
-            self::Fidelity => 'Fidelity account history',
+            self::Fidelity => 'Fidelity activity',
             self::Robinhood => 'Robinhood account activity',
         };
     }
 
     public function isSupported(): bool
     {
-        return $this === self::Template;
+        return $this !== self::Robinhood;
     }
 }

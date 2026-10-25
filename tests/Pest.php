@@ -91,6 +91,18 @@ function previewTemplateCsv(Account $account, array $lines, string $filename = '
 }
 
 /**
+ * Read CSV text in the Fidelity activity format into a previewed batch.
+ *
+ * @param  list<string>  $lines  data lines; the Fidelity header is added
+ */
+function previewFidelityCsv(Account $account, array $lines, string $filename = 'fidelity.csv'): ImportBatch
+{
+    $header = 'date,symbol,instrumentType,quantity,activityType,unitPrice,currency,fee,amount,subtype,account';
+
+    return app(PreviewImport::class)->handle($account, ImportFormatType::Fidelity, implode("\n", [$header, ...$lines]), $filename, null);
+}
+
+/**
  * Record a sell-to-open option trade through the real options engine.
  */
 function recordSellToOpen(Account $account, OptionType $type, string $ticker, string $strike, string $expiresOn, string $openedOn, int $contracts, string $premium, string $fee, int $multiplier = 100): OptionPosition
