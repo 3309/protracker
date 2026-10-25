@@ -26,6 +26,7 @@
                         ['route' => 'options.index', 'label' => 'Options', 'active' => 'options.*'],
                         ['route' => 'positions', 'label' => 'Positions', 'active' => 'positions'],
                         ['route' => 'dividends.index', 'label' => 'Dividends', 'active' => 'dividends.*'],
+                        ['route' => 'prices.index', 'label' => 'Prices', 'active' => 'prices.*'],
                         ['route' => 'cash.index', 'label' => 'Cash', 'active' => 'cash.*'],
                         ['route' => 'realized.index', 'label' => 'Realized P/L', 'active' => 'realized.*'],
                         ['route' => 'settings', 'label' => 'Settings', 'active' => 'settings'],

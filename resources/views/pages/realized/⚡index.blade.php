@@ -5,83 +5,58 @@ use App\Models\Dividend;
 use App\Models\OptionEvent;
 use App\Models\StockSaleAllocation;
 use App\Support\Money;
+use App\Support\RealizedProfit;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 
 new #[Title('Realized P/L')] class extends ReportPage
 {
+    #[Computed]
+    public function realized(): RealizedProfit
+    {
+        return $this->reportingPeriod === null
+            ? new RealizedProfit(new Collection, new Collection, new Collection)
+            : RealizedProfit::for($this->reportingPeriod, $this->filteredAccountIds(), $this->tickerFilter());
+    }
+
     /**
-     * Stock sale pieces sold in the selected period. Voided sales have no pieces.
-     *
      * @return Collection<int, StockSaleAllocation>
      */
     #[Computed]
     public function stockPieces(): Collection
     {
-        if ($this->reportingPeriod === null) {
-            return new Collection;
-        }
-
-        $query = StockSaleAllocation::query()->with(['account', 'lot', 'sale']);
-
-        $this->applyAccountFilter($query);
-        $this->reportingPeriod->applyTo($query, 'sold_on');
-
-        return $query->orderBy('sold_on')->orderBy('stock_trade_id')->orderBy('id')->get();
+        return $this->realized->stockPieces;
     }
 
     /**
-     * Option closes in the selected period, by close date. Voided closes are left out.
-     *
      * @return Collection<int, OptionEvent>
      */
     #[Computed]
     public function optionCloses(): Collection
     {
-        if ($this->reportingPeriod === null) {
-            return new Collection;
-        }
-
-        $query = OptionEvent::query()->with(['account', 'position'])->notVoided();
-
-        $this->applyAccountFilter($query);
-        $this->reportingPeriod->applyTo($query, 'event_date');
-
-        return $query->orderBy('event_date')->orderBy('id')->get();
+        return $this->realized->optionCloses;
     }
 
     /**
-     * Confirmed dividends paid in the selected period. Unconfirmed dividends
-     * are not income yet.
-     *
      * @return Collection<int, Dividend>
      */
     #[Computed]
     public function dividends(): Collection
     {
-        if ($this->reportingPeriod === null) {
-            return new Collection;
-        }
-
-        $query = Dividend::query()->with('account')->notVoided()->whereNotNull('actual_amount');
-
-        $this->applyAccountFilter($query);
-        $this->reportingPeriod->applyTo($query, 'pay_date');
-
-        return $query->orderBy('pay_date')->orderBy('id')->get();
+        return $this->realized->dividends;
     }
 
     #[Computed]
     public function dividendTotal(): Money
     {
-        return $this->sum($this->dividends, fn (Dividend $dividend) => $dividend->actual_amount ?? Money::zero());
+        return $this->realized->dividendTotal();
     }
 
     #[Computed]
     public function combinedNet(): Money
     {
-        return $this->stockTotals['net']->plus($this->optionTotals['net'])->plus($this->dividendTotal);
+        return $this->realized->combinedNet();
     }
 
     /**
@@ -90,11 +65,7 @@ new #[Title('Realized P/L')] class extends ReportPage
     #[Computed]
     public function stockTotals(): array
     {
-        return [
-            'gross' => $this->sum($this->stockPieces, fn (StockSaleAllocation $piece) => $piece->grossProfit()),
-            'fees' => $this->sum($this->stockPieces, fn (StockSaleAllocation $piece) => $piece->fees()),
-            'net' => $this->sum($this->stockPieces, fn (StockSaleAllocation $piece) => $piece->netProfit()),
-        ];
+        return $this->realized->stockTotals();
     }
 
     /**
@@ -103,22 +74,7 @@ new #[Title('Realized P/L')] class extends ReportPage
     #[Computed]
     public function optionTotals(): array
     {
-        return [
-            'gross' => $this->sum($this->optionCloses, fn (OptionEvent $event) => $event->grossProfit()),
-            'fees' => $this->sum($this->optionCloses, fn (OptionEvent $event) => $event->totalFees()),
-            'net' => $this->sum($this->optionCloses, fn (OptionEvent $event) => $event->netProfit()),
-        ];
-    }
-
-    /**
-     * @template TItem
-     *
-     * @param  Collection<int, TItem>  $items
-     * @param  callable(TItem): Money  $amount
-     */
-    private function sum(Collection $items, callable $amount): Money
-    {
-        return $items->reduce(fn (Money $total, mixed $item) => $total->plus($amount($item)), Money::zero());
+        return $this->realized->optionTotals();
     }
 };
 ?>

@@ -39,6 +39,9 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/cash/reconciliation', 'pages::cash.reconciliation')->name('cash.reconciliation');
     Route::livewire('/cash/broker-balances/{brokerBalance}/edit', 'pages::cash.broker-balances.edit')->name('cash.broker-balances.edit');
 
+    Route::livewire('/prices', 'pages::prices.index')->name('prices.index');
+    Route::livewire('/prices/{price}', 'pages::prices.edit')->name('prices.edit');
+
     Route::livewire('/positions', 'pages::positions')->name('positions');
     Route::livewire('/realized', 'pages::realized.index')->name('realized.index');
 

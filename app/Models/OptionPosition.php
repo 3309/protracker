@@ -179,6 +179,24 @@ class OptionPosition extends Model
     }
 
     /**
+     * The premium belonging to the contracts still open: the whole premium
+     * minus the part already allocated to closed contracts.
+     */
+    public function openPremium(): Money
+    {
+        return $this->premiumReceived()
+            ->minus($this->premium_per_share->totalFor(Quantity::fromInteger($this->closedContracts() * $this->multiplier)));
+    }
+
+    /**
+     * The opening fees belonging to the contracts still open.
+     */
+    public function openOpeningFees(): Money
+    {
+        return $this->opening_fees->minus($this->opening_fees->share($this->closedContracts(), $this->contracts));
+    }
+
+    /**
      * The realized net profit of every event that has not been voided.
      */
     public function realizedNetProfit(): Money

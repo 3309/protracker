@@ -9,6 +9,7 @@ use App\Models\CashMovement;
 use App\Models\Dividend;
 use App\Models\OptionEvent;
 use App\Models\OptionPosition;
+use App\Models\Price;
 use App\Models\Setting;
 use App\Models\StockLot;
 use App\Models\StockTrade;
@@ -67,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
             'dividend' => Dividend::class,
             'option_event' => OptionEvent::class,
             'option_position' => OptionPosition::class,
+            'price' => Price::class,
             'setting' => Setting::class,
             'stock_lot' => StockLot::class,
             'stock_trade' => StockTrade::class,

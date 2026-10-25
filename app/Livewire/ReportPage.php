@@ -36,6 +36,45 @@ abstract class ReportPage extends Component
     #[Url]
     public string $to = '';
 
+    /** A broker value, or blank for all brokers. */
+    #[Url]
+    public string $broker = '';
+
+    /** A ticker, or blank for all tickers. */
+    #[Url]
+    public string $ticker = '';
+
+    /**
+     * The accounts matching the account and broker filters, or null when
+     * neither is set.
+     *
+     * @return list<int>|null
+     */
+    #[Computed]
+    public function filteredAccountIds(): ?array
+    {
+        if ($this->account === '' && $this->broker === '') {
+            return null;
+        }
+
+        return array_values(Account::query()
+            ->when($this->account !== '', fn (Builder $query) => $query->whereKey((int) $this->account))
+            ->when($this->broker !== '', fn (Builder $query) => $query->where('broker', $this->broker))
+            ->get()
+            ->map(fn (Account $account): int => $account->id)
+            ->all());
+    }
+
+    /**
+     * The ticker filter, upper-cased, or null when not set.
+     */
+    public function tickerFilter(): ?string
+    {
+        $ticker = strtoupper(trim($this->ticker));
+
+        return $ticker !== '' ? $ticker : null;
+    }
+
     /**
      * Accounts offered in the account filter, archived ones included so
      * their history can still be reported.
@@ -96,7 +135,7 @@ abstract class ReportPage extends Component
     }
 
     /**
-     * Limit a query to the selected account, if one is selected.
+     * Limit a query to the selected account and broker, if selected.
      *
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
@@ -105,8 +144,29 @@ abstract class ReportPage extends Component
      */
     protected function applyAccountFilter(Builder $query, string $column = 'account_id'): Builder
     {
-        if ($this->account !== '') {
-            $query->where($column, (int) $this->account);
+        $accountIds = $this->filteredAccountIds();
+
+        if ($accountIds !== null) {
+            $query->whereIn($column, $accountIds);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Limit a query to the selected ticker, if one is entered.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    protected function applyTickerFilter(Builder $query, string $column = 'ticker'): Builder
+    {
+        $ticker = $this->tickerFilter();
+
+        if ($ticker !== null) {
+            $query->where($column, $ticker);
         }
 
         return $query;
