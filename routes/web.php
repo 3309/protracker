@@ -29,6 +29,16 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/options/{optionPosition}/chain', 'pages::options.chain')->name('options.chain');
     Route::livewire('/option-events/{optionEvent}/edit', 'pages::options.events.edit')->name('options.events.edit');
 
+    Route::livewire('/dividends', 'pages::dividends.index')->name('dividends.index');
+    Route::livewire('/dividends/create', 'pages::dividends.create')->name('dividends.create');
+    Route::livewire('/dividends/{dividend}/edit', 'pages::dividends.edit')->name('dividends.edit');
+
+    Route::livewire('/cash', 'pages::cash.index')->name('cash.index');
+    Route::livewire('/cash/movements/create', 'pages::cash.movements.create')->name('cash.movements.create');
+    Route::livewire('/cash/movements/{cashMovement}/edit', 'pages::cash.movements.edit')->name('cash.movements.edit');
+    Route::livewire('/cash/reconciliation', 'pages::cash.reconciliation')->name('cash.reconciliation');
+    Route::livewire('/cash/broker-balances/{brokerBalance}/edit', 'pages::cash.broker-balances.edit')->name('cash.broker-balances.edit');
+
     Route::livewire('/positions', 'pages::positions')->name('positions');
     Route::livewire('/realized', 'pages::realized.index')->name('realized.index');
 

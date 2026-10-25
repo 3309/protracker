@@ -13,6 +13,12 @@ final class InputFormat
     /** A per-share price with up to 4 decimal places, e.g. 50, 1.20 or 0.2425. */
     public const string PRICE = '/^\$?\d{1,7}(\.\d{1,4})?$/';
 
+    /** A dividend per share with up to 6 decimal places, e.g. 0.50 or 0.123456. */
+    public const string DIVIDEND_RATE = '/^\$?\d{1,7}(\.\d{1,6})?$/';
+
+    /** A positive dollar amount with up to 2 decimal places, e.g. 2000 or 42.50. */
+    public const string MONEY = '/^\$?\d{1,10}(\.\d{1,2})?$/';
+
     /** A fee in dollars with up to 2 decimal places, e.g. 0.67. */
     public const string FEE = '/^\$?\d{1,6}(\.\d{1,2})?$/';
 

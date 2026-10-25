@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\ReportPage;
+use App\Models\Dividend;
 use App\Models\OptionEvent;
 use App\Models\StockSaleAllocation;
 use App\Support\Money;
@@ -48,6 +49,39 @@ new #[Title('Realized P/L')] class extends ReportPage
         $this->reportingPeriod->applyTo($query, 'event_date');
 
         return $query->orderBy('event_date')->orderBy('id')->get();
+    }
+
+    /**
+     * Confirmed dividends paid in the selected period. Unconfirmed dividends
+     * are not income yet.
+     *
+     * @return Collection<int, Dividend>
+     */
+    #[Computed]
+    public function dividends(): Collection
+    {
+        if ($this->reportingPeriod === null) {
+            return new Collection;
+        }
+
+        $query = Dividend::query()->with('account')->notVoided()->whereNotNull('actual_amount');
+
+        $this->applyAccountFilter($query);
+        $this->reportingPeriod->applyTo($query, 'pay_date');
+
+        return $query->orderBy('pay_date')->orderBy('id')->get();
+    }
+
+    #[Computed]
+    public function dividendTotal(): Money
+    {
+        return $this->sum($this->dividends, fn (Dividend $dividend) => $dividend->actual_amount ?? Money::zero());
+    }
+
+    #[Computed]
+    public function combinedNet(): Money
+    {
+        return $this->stockTotals['net']->plus($this->optionTotals['net'])->plus($this->dividendTotal);
     }
 
     /**
@@ -101,7 +135,7 @@ new #[Title('Realized P/L')] class extends ReportPage
     @include('partials.report-filters')
 
     @if ($this->reportingPeriod !== null)
-        <div class="grid gap-4 sm:grid-cols-3">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div class="card">
                 <div class="text-sm text-zinc-500 dark:text-zinc-400">Stocks · net</div>
                 <div class="text-xl font-semibold tabular-nums">{{ $this->stockTotals['net']->format() }}</div>
@@ -113,9 +147,14 @@ new #[Title('Realized P/L')] class extends ReportPage
                 <div class="text-xs text-zinc-500 tabular-nums">Gross {{ $this->optionTotals['gross']->format() }} · fees {{ $this->optionTotals['fees']->format() }}</div>
             </div>
             <div class="card">
+                <div class="text-sm text-zinc-500 dark:text-zinc-400">Dividends received</div>
+                <div class="text-xl font-semibold tabular-nums">{{ $this->dividendTotal->format() }}</div>
+                <div class="text-xs text-zinc-500">Confirmed amounts, by pay date</div>
+            </div>
+            <div class="card">
                 <div class="text-sm text-zinc-500 dark:text-zinc-400">Combined net · {{ $this->reportingPeriod->label() }}</div>
-                <div class="text-xl font-semibold tabular-nums">{{ $this->stockTotals['net']->plus($this->optionTotals['net'])->format() }}</div>
-                <div class="text-xs text-zinc-500">Dividends are added in a later phase.</div>
+                <div class="text-xl font-semibold tabular-nums">{{ $this->combinedNet->format() }}</div>
+                <div class="text-xs text-zinc-500">Stocks + options + dividends</div>
             </div>
         </div>
 
@@ -218,6 +257,49 @@ new #[Title('Realized P/L')] class extends ReportPage
                                 <td class="px-4 py-2 text-right tabular-nums">{{ $this->optionTotals['gross']->format() }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums">{{ $this->optionTotals['fees']->format() }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums">{{ $this->optionTotals['net']->format() }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            @endif
+        </section>
+
+        <section class="flex flex-col gap-3">
+            <h2 class="text-lg font-semibold">Dividends</h2>
+
+            @if ($this->dividends->isEmpty())
+                <div class="card">No confirmed dividends were paid in this period.</div>
+            @else
+                <div class="card overflow-x-auto p-0">
+                    <table class="w-full text-left text-sm">
+                        <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                            <tr>
+                                <th class="px-4 py-3 font-medium">Paid on</th>
+                                <th class="px-4 py-3 font-medium">Account</th>
+                                <th class="px-4 py-3 font-medium">Ticker</th>
+                                <th class="px-4 py-3 font-medium">Ex-date</th>
+                                <th class="px-4 py-3 text-right font-medium">Expected</th>
+                                <th class="px-4 py-3 text-right font-medium">Received</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                            @foreach ($this->dividends as $dividend)
+                                <tr wire:key="realized-dividend-{{ $dividend->id }}">
+                                    <td class="px-4 py-2">
+                                        <a href="{{ route('dividends.edit', $dividend) }}" class="underline underline-offset-4" wire:navigate>{{ $dividend->pay_date->format('M j, Y') }}</a>
+                                    </td>
+                                    <td class="px-4 py-2">{{ $dividend->account->displayName() }}</td>
+                                    <td class="px-4 py-2 font-medium">{{ $dividend->ticker }}</td>
+                                    <td class="px-4 py-2">{{ $dividend->ex_date->format('M j, Y') }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums">{{ $dividend->expected_amount?->format() }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums">{{ $dividend->actual_amount?->format() }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="border-t border-zinc-200 font-medium dark:border-zinc-700">
+                            <tr>
+                                <td colspan="5" class="px-4 py-2">Dividend total</td>
+                                <td class="px-4 py-2 text-right tabular-nums">{{ $this->dividendTotal->format() }}</td>
                             </tr>
                         </tfoot>
                     </table>

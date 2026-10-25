@@ -52,8 +52,11 @@ class Setting extends Model
     {
         return AccountOpening::query()->whereNotNull('cash_balance')->exists()
             || StockLot::query()->openingBalance()->notVoided()->exists()
-            || OptionPosition::query()->openingBalance()->notVoided()->exists()
-            || StockTrade::query()->notVoided()->exists();
+            || OptionPosition::query()->notVoided()->exists()
+            || StockTrade::query()->notVoided()->exists()
+            || Dividend::query()->notVoided()->exists()
+            || CashMovement::query()->notVoided()->exists()
+            || BrokerBalance::query()->notVoided()->exists();
     }
 
     /**

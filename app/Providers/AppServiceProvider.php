@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Models\Account;
 use App\Models\AccountOpening;
+use App\Models\BrokerBalance;
+use App\Models\CashMovement;
+use App\Models\Dividend;
 use App\Models\OptionEvent;
 use App\Models\OptionPosition;
 use App\Models\Setting;
@@ -59,6 +62,9 @@ class AppServiceProvider extends ServiceProvider
         Relation::enforceMorphMap([
             'account' => Account::class,
             'account_opening' => AccountOpening::class,
+            'broker_balance' => BrokerBalance::class,
+            'cash_movement' => CashMovement::class,
+            'dividend' => Dividend::class,
             'option_event' => OptionEvent::class,
             'option_position' => OptionPosition::class,
             'setting' => Setting::class,

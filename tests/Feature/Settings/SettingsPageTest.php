@@ -2,6 +2,8 @@
 
 use App\Enums\AuditEvent;
 use App\Models\AccountOpening;
+use App\Models\CashMovement;
+use App\Models\Dividend;
 use App\Models\OptionPosition;
 use App\Models\Setting;
 use App\Models\StockLot;
@@ -81,6 +83,8 @@ describe('reporting start date lock', function () {
         'stock lot' => fn () => StockLot::factory()->create(),
         'option' => fn () => OptionPosition::factory()->create(),
         'stock trade' => fn () => StockTrade::factory()->create(),
+        'dividend' => fn () => Dividend::factory()->create(),
+        'cash movement' => fn () => CashMovement::factory()->create(),
     ]);
 
     it('still saves the other settings while the date is locked', function () {
