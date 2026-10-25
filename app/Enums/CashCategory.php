@@ -12,6 +12,8 @@ enum CashCategory: string
     case StockSale = 'stock_sale';
     case OptionPremium = 'option_premium';
     case OptionBuyBack = 'option_buy_back';
+    case OptionPurchase = 'option_purchase';
+    case OptionSale = 'option_sale';
     case Dividend = 'dividend';
     case Deposit = 'deposit';
     case Withdrawal = 'withdrawal';
@@ -38,6 +40,8 @@ enum CashCategory: string
             self::StockSale => 'Stock sale',
             self::OptionPremium => 'Option premium',
             self::OptionBuyBack => 'Option buy-back',
+            self::OptionPurchase => 'Option bought',
+            self::OptionSale => 'Option sold to close',
             self::Dividend => 'Dividend',
             self::Deposit => 'Deposit',
             self::Withdrawal => 'Withdrawal',

@@ -27,6 +27,9 @@ use Illuminate\Support\Collection as BaseCollection;
  * the cycle: option results by event date, stock results by sale date and
  * confirmed dividends by ex-date. So each record counts in one cycle only.
  *
+ * Only sold options form wheel cycles; bought options are not part of the
+ * wheel and are left out.
+ *
  * Capital at risk is the largest amount tied up on any day of the cycle:
  * strike × multiplier × open put contracts, plus the cost of shares held.
  */
@@ -40,6 +43,7 @@ class BuildWheelCycles
     {
         $positions = OptionPosition::query()
             ->notVoided()
+            ->short()
             ->with(['events' => fn ($events) => $events->whereNull('voided_at')])
             ->when($accountIds !== null, fn ($query) => $query->whereIn('account_id', $accountIds))
             ->when($ticker !== null, fn ($query) => $query->where('underlying', $ticker))

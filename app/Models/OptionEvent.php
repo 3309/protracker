@@ -136,8 +136,9 @@ class OptionEvent extends Model
     }
 
     /**
-     * What it cost to buy the contracts back (price × multiplier × contracts).
-     * Expiry and assignment cost nothing to close.
+     * The closing amount (price × multiplier × contracts): what it cost to
+     * buy a short option back, or what selling a long option brought in.
+     * Expiry and assignment have no closing amount.
      */
     public function closingCost(): Money
     {
@@ -149,11 +150,15 @@ class OptionEvent extends Model
     }
 
     /**
-     * Premium kept minus closing cost, before fees.
+     * Before fees: for a short option, the premium kept minus the closing
+     * cost; for a long option, the sale proceeds minus the premium paid for
+     * these contracts (so a long option that expires loses its premium).
      */
     public function grossProfit(): Money
     {
-        return $this->allocated_premium->minus($this->closingCost());
+        return $this->position->isLong()
+            ? $this->closingCost()->minus($this->allocated_premium)
+            : $this->allocated_premium->minus($this->closingCost());
     }
 
     /**

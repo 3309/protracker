@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Enums\OptionEventType;
 use App\Models\OptionEvent;
 use App\Models\OptionPosition;
 use Exception;
@@ -38,9 +39,11 @@ class OptionPositionException extends Exception
 
     public static function closedOutsideLifetime(OptionPosition $position, OptionEvent $event): self
     {
-        $rule = $event->event_type->daysAllowedAfterExpiration() > 0
-            ? 'An expiry or assignment must be on or after the opening date and no more than '.$event->event_type->daysAllowedAfterExpiration().' days after expiration.'
-            : 'A buy-back must be on or after the opening date and on or before expiration.';
+        $rule = match (true) {
+            $event->event_type->daysAllowedAfterExpiration() > 0 => 'An expiry or assignment must be on or after the opening date and no more than '.$event->event_type->daysAllowedAfterExpiration().' days after expiration.',
+            $event->event_type === OptionEventType::SellToClose => 'A sale to close must be on or after the opening date and on or before expiration.',
+            default => 'A buy-back must be on or after the opening date and on or before expiration.',
+        };
 
         return new self(sprintf(
             'The event on %s is outside the life of %s, which was opened on %s. %s',
@@ -53,7 +56,16 @@ class OptionPositionException extends Exception
 
     public static function expiredEarly(OptionPosition $position): self
     {
-        return new self("{$position->description()} cannot expire before its expiration date. Record a buy to close or an early assignment instead.", 'event_date');
+        return new self($position->isLong()
+            ? "{$position->description()} cannot expire before its expiration date. Record a sell to close instead."
+            : "{$position->description()} cannot expire before its expiration date. Record a buy to close or an early assignment instead.", 'event_date');
+    }
+
+    public static function eventNotAllowed(OptionPosition $position, OptionEvent $event): self
+    {
+        return new self($position->isLong()
+            ? "{$position->description()} was bought, so it can only be sold to close or expire worthless, not {$event->event_type->label()}."
+            : "{$position->description()} was sold, so it cannot be {$event->event_type->label()}.", 'reason');
     }
 
     public static function typeChangeWithAssignments(OptionPosition $position): self

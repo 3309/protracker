@@ -5,6 +5,7 @@ namespace App\Actions\Imports;
 use App\Enums\ImportAction;
 use App\Enums\ImportRowStatus;
 use App\Enums\OptionEventType;
+use App\Enums\OptionSide;
 use App\Enums\OptionType;
 use App\Enums\TradeSide;
 use App\Models\CashMovement;
@@ -133,7 +134,7 @@ class AssessImportRows
      */
     private function hasOptionToClose(ImportRow $row, Collection $batchRows): bool
     {
-        $openPosition = $this->contractQuery(OptionPosition::query(), $row, 'underlying')
+        $openPosition = $this->contractQuery(OptionPosition::query()->short(), $row, 'underlying')
             ->where('account_id', $row->batch->account_id)
             ->notVoided()
             ->open()
@@ -163,7 +164,7 @@ class AssessImportRows
                 ->where('side', $action === ImportAction::Buy ? TradeSide::Buy : TradeSide::Sell)
                 ->where('trade_date', $date)
                 ->where('shares', Quantity::fromDecimal(ltrim($row->value('quantity'), '-'))->units),
-            $action === ImportAction::SellToOpen => $this->contractQuery(OptionPosition::query(), $row, 'underlying')
+            $action === ImportAction::SellToOpen => $this->contractQuery(OptionPosition::query()->short(), $row, 'underlying')
                 ->where('opened_on', $date)
                 ->where('contracts', (int) ltrim($row->value('quantity'), '-')),
             $action->closesOption() => OptionEvent::query()
@@ -174,7 +175,7 @@ class AssessImportRows
                 })
                 ->where('event_date', $date)
                 ->where('contracts', (int) ltrim($row->value('quantity'), '-'))
-                ->whereHas('position', fn (Builder $position) => $this->contractQuery($position, $row, 'underlying')),
+                ->whereHas('position', fn (Builder $position) => $this->contractQuery($position->where('side', OptionSide::Short), $row, 'underlying')),
             $action === ImportAction::Dividend => Dividend::query()->where('ticker', $row->value('symbol'))->where('pay_date', $date),
             default => CashMovement::query()
                 ->where('movement_type', $action->cashMovementType())

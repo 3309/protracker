@@ -253,6 +253,7 @@ class CommitImportRow
     private function positionsToClose(ImportRow $row, Account $account, int $contracts): array
     {
         $positions = OptionPosition::query()
+            ->short()
             ->where('account_id', $account->id)
             ->where('underlying', $row->value('symbol'))
             ->where('option_type', $row->value('option_type'))

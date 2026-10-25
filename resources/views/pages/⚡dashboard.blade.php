@@ -84,7 +84,7 @@ new #[Title('Dashboard')] class extends ReportPage
             return collect();
         }
 
-        $sales = OptionPosition::query()->notVoided()->where('origin', '!=', PositionOrigin::OpeningBalance);
+        $sales = OptionPosition::query()->notVoided()->short()->where('origin', '!=', PositionOrigin::OpeningBalance);
         $this->applyAccountFilter($sales);
         $this->applyTickerFilter($sales, 'underlying');
         $this->reportingPeriod->applyTo($sales, 'opened_on');
@@ -342,7 +342,10 @@ new #[Title('Dashboard')] class extends ReportPage
                                     @endif
                                 </td>
                                 <td class="px-4 py-2 text-right tabular-nums">{{ $option['openContracts'] }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $option['openPremium']->format() }}</td>
+                                <td class="px-4 py-2 text-right tabular-nums">
+                                    {{ $option['openPremium']->format() }}
+                                    <span class="block text-xs text-zinc-500">{{ $option['position']->isLong() ? 'paid' : 'received' }}</span>
+                                </td>
                                 <td class="px-4 py-2">
                                     @if ($option['underlyingPrice'])
                                         {{ $option['underlyingPrice']->price->format() }} · {{ $option['moneyness'] }}{{ $option['underlyingStale'] ? ' (stale price)' : '' }}

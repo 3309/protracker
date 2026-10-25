@@ -19,7 +19,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Records, corrects and voids option trades and lifecycle events: sell to
- * open, buy to close, expiry, assignment and rolls.
+ * open, buy to close, expiry, assignment and rolls for sold options; buy to
+ * open, sell to close and expiry for bought options.
  *
  * An assignment also records the stock trade at the strike through the
  * stock engine: a put assignment buys the shares (creating a lot), a call
@@ -46,6 +47,33 @@ class SaveOptionTrade
             'side' => OptionSide::Short,
             'origin' => PositionOrigin::SellToOpen,
         ]);
+    }
+
+    /**
+     * Buy an option to open (a long call or put). Nothing is realized until
+     * the contracts are sold to close or expire.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function buyToOpen(array $attributes): OptionPosition
+    {
+        return OptionPosition::create([
+            ...$attributes,
+            'side' => OptionSide::Long,
+            'origin' => PositionOrigin::BuyToOpen,
+        ]);
+    }
+
+    /**
+     * Sell some or all open contracts of a bought option.
+     *
+     * @param  array<string, mixed>  $attributes
+     *
+     * @throws OptionPositionException
+     */
+    public function sellToClose(OptionPosition $position, array $attributes): OptionEvent
+    {
+        return $this->recordEvent($position, OptionEventType::SellToClose, $attributes);
     }
 
     /**

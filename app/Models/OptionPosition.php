@@ -277,18 +277,34 @@ class OptionPosition extends Model
     }
 
     /**
-     * The gross premium received when the position was opened, before fees.
+     * The gross premium when the position was opened, before fees: received
+     * for a short option, paid for a long one.
      */
     public function premiumReceived(): Money
     {
         return $this->premium_per_share->totalFor($this->sharesCovered());
     }
 
+    public function isLong(): bool
+    {
+        return $this->side === OptionSide::Long;
+    }
+
     /**
-     * A short description such as "AAPL $150.00 Put, expires Jan 16, 2026".
+     * A short description such as "AAPL $150.00 Put, expires Jan 16, 2026";
+     * a bought option reads "AAPL $150.00 Put (long), expires …".
      */
     public function description(): string
     {
-        return "{$this->underlying} {$this->strike->format()} {$this->option_type->label()}, expires {$this->expires_on->format('M j, Y')}";
+        return "{$this->underlying} {$this->strike->format()} {$this->option_type->label()}".($this->isLong() ? ' (long)' : '').", expires {$this->expires_on->format('M j, Y')}";
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function short(Builder $query): void
+    {
+        $query->where('side', OptionSide::Short);
     }
 }

@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Checks an option position's events and works out the part of the opening
  * premium and opening fees that belongs to the contracts each event closed.
+ * Only events that fit the side are allowed: a sold option is bought back,
+ * rolled, expires or is assigned; a bought option is sold or expires.
  *
  * Events are taken in date order. The premium and fees are split by
  * contract with running totals, so the pieces always add up exactly to the
@@ -60,6 +62,10 @@ class RebuildOptionPosition
         $closedBefore = 0;
 
         foreach ($events as $event) {
+            if (! in_array($event->event_type, $position->side->closingEvents(), true)) {
+                throw OptionPositionException::eventNotAllowed($position, $event);
+            }
+
             $eventDate = $event->event_date->format('Y-m-d');
             $latestDate = $position->expires_on->addDays($event->event_type->daysAllowedAfterExpiration())->format('Y-m-d');
 

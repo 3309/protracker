@@ -187,7 +187,7 @@ class SellToOpenForm extends Form
     /**
      * @return array<string, mixed>
      */
-    private function positionAttributes(Account $account): array
+    protected function positionAttributes(Account $account): array
     {
         $contracts = (int) $this->contracts;
         $settlementDate = $this->nullIfBlank($this->settlement_date);

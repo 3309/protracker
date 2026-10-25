@@ -16,8 +16,8 @@ use Closure;
 use Livewire\Form;
 
 /**
- * Buys back some or all open contracts of a short option, or corrects such
- * a close.
+ * Closes some or all open contracts at a price, or corrects such a close:
+ * buys back a sold option, or sells a bought option to close.
  *
  * A blank fee uses the account's default option fee × contracts. A blank
  * settlement date is calculated as the next trading day.
@@ -113,7 +113,9 @@ class BuyToCloseForm extends Form
         $this->validate();
 
         try {
-            $event = app(SaveOptionTrade::class)->buyToClose($position, $this->eventAttributes($position));
+            $event = $position->isLong()
+                ? app(SaveOptionTrade::class)->sellToClose($position, $this->eventAttributes($position))
+                : app(SaveOptionTrade::class)->buyToClose($position, $this->eventAttributes($position));
         } catch (OptionPositionException $exception) {
             $this->addError($exception->field, $exception->getMessage());
 

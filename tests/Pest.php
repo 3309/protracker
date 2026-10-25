@@ -135,6 +135,40 @@ function recordSellToOpen(Account $account, OptionType $type, string $ticker, st
 }
 
 /**
+ * Record a buy-to-open (long) option trade through the real options engine.
+ */
+function recordBuyToOpen(Account $account, OptionType $type, string $ticker, string $strike, string $expiresOn, string $openedOn, int $contracts, string $premium, string $fee, int $multiplier = 100): OptionPosition
+{
+    return app(SaveOptionTrade::class)->buyToOpen([
+        'account_id' => $account->id,
+        'underlying' => $ticker,
+        'option_type' => $type,
+        'strike' => UnitPrice::fromDecimal($strike),
+        'expires_on' => $expiresOn,
+        'opened_on' => $openedOn,
+        'opening_settlement_date' => MarketCalendar::optionSettlementDate(CarbonImmutable::parse($openedOn)),
+        'contracts' => $contracts,
+        'multiplier' => $multiplier,
+        'premium_per_share' => UnitPrice::fromDecimal($premium),
+        'opening_fees' => Money::fromDecimal($fee),
+    ]);
+}
+
+/**
+ * Sell contracts of a bought option to close, through the real options engine.
+ */
+function recordSellToClose(OptionPosition $position, string $date, int $contracts, string $price, string $fee): OptionEvent
+{
+    return app(SaveOptionTrade::class)->sellToClose($position, [
+        'event_date' => $date,
+        'settlement_date' => MarketCalendar::optionSettlementDate(CarbonImmutable::parse($date)),
+        'contracts' => $contracts,
+        'price_per_share' => UnitPrice::fromDecimal($price),
+        'fees' => Money::fromDecimal($fee),
+    ]);
+}
+
+/**
  * Record that contracts expired worthless, through the real options engine.
  */
 function recordExpiry(OptionPosition $position, string $date, int $contracts): OptionEvent

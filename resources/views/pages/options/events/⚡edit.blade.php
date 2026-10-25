@@ -17,7 +17,7 @@ new #[Title('Correct option event')] class extends Component
 {
     public OptionEvent $optionEvent;
 
-    /** Used for buy-backs, including the buy-back of a roll. */
+    /** Used for closes at a price: buy-backs (including a roll's) and sales to close. */
     public BuyToCloseForm $form;
 
     /** Used for expiries and assignments. */
@@ -27,7 +27,7 @@ new #[Title('Correct option event')] class extends Component
     {
         $this->optionEvent = $optionEvent;
 
-        if ($optionEvent->event_type->isBuyBack()) {
+        if ($optionEvent->event_type->closesAtPrice()) {
             $this->form->setOptionEvent($optionEvent);
         } else {
             $this->lifecycle->setOptionEvent($optionEvent);
@@ -38,7 +38,7 @@ new #[Title('Correct option event')] class extends Component
     {
         abort_if($this->optionEvent->isVoided(), 403, 'A voided event cannot be changed.');
 
-        $saved = $this->optionEvent->event_type->isBuyBack() ? $this->form->update() : $this->lifecycle->update();
+        $saved = $this->optionEvent->event_type->closesAtPrice() ? $this->form->update() : $this->lifecycle->update();
 
         $this->optionEvent->refresh();
 
@@ -84,7 +84,7 @@ new #[Title('Correct option event')] class extends Component
 
     public function reasonField(): string
     {
-        return $this->optionEvent->event_type->isBuyBack() ? 'form.reason' : 'lifecycle.reason';
+        return $this->optionEvent->event_type->closesAtPrice() ? 'form.reason' : 'lifecycle.reason';
     }
 
     /**
@@ -144,8 +144,8 @@ new #[Title('Correct option event')] class extends Component
         <div class="card text-sm">This event was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</div>
     @else
         <form wire:submit="save" wire:confirm="Save this correction? Realized profit for this position will be recalculated." class="card flex flex-col gap-6">
-            @if ($optionEvent->event_type->isBuyBack())
-                @include('partials.buy-to-close-fields', ['feePerContract' => $optionEvent->position->account->option_fee_per_contract, 'prefix' => 'form'])
+            @if ($optionEvent->event_type->closesAtPrice())
+                @include('partials.buy-to-close-fields', ['feePerContract' => $optionEvent->position->account->option_fee_per_contract, 'prefix' => 'form', 'isSale' => $optionEvent->position->isLong()])
             @else
                 @include('partials.option-lifecycle-fields', [
                     'optionPosition' => $optionEvent->position,

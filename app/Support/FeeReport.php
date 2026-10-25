@@ -12,7 +12,8 @@ use Illuminate\Support\Collection;
 /**
  * Fees paid in a period, on the date each was charged: stock trade fees
  * (including stock trades caused by assignments), option opening fees of
- * sell-to-open trades and option closing fees. Fees of opening-balance
+ * options sold or bought to open and option closing fees (buy-backs and
+ * sales to close). Fees of opening-balance
  * options were paid before the reporting start. Voided records are left out.
  */
 final readonly class FeeReport
@@ -54,7 +55,7 @@ final readonly class FeeReport
         }
 
         $closings = OptionEvent::query()->with(['account', 'position'])->notVoided()
-            ->whereIn('event_type', [OptionEventType::BuyToClose, OptionEventType::Rolled])
+            ->whereIn('event_type', [OptionEventType::BuyToClose, OptionEventType::Rolled, OptionEventType::SellToClose])
             ->when($accountIds !== null, fn ($query) => $query->whereIn('account_id', $accountIds))
             ->when($ticker !== null, fn ($query) => $query->whereHas('position', fn ($position) => $position->where('underlying', $ticker)));
         $period->applyTo($closings, 'event_date');

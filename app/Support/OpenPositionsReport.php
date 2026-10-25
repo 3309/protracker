@@ -10,14 +10,19 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 /**
- * Open stock and short option positions today, valued with the latest
- * manual prices.
+ * Open stock and option positions today, valued with the latest manual
+ * prices.
  *
  * Unrealized P/L:
  * - stock: (latest price − cost per share) × shares held, per lot;
  * - short option: premium for the open contracts − opening fees for them −
  *   latest option price × multiplier × open contracts (net of opening
- *   fees, before any closing fee).
+ *   fees, before any closing fee);
+ * - long option: latest option price × multiplier × open contracts −
+ *   premium paid for them − opening fees for them (before any closing fee).
+ *
+ * Only sold puts can be assigned, so only they count towards the cash
+ * needed if puts are assigned.
  * A position without a price shows "price needed" and is left out of the
  * totals; nothing is guessed.
  */
@@ -97,12 +102,16 @@ final readonly class OpenPositionsReport
                     'price' => $price,
                     'stale' => $price !== null && $prices->isStale($price),
                     'costToClose' => $costToClose,
-                    'unrealized' => $costToClose !== null ? $openPremium->minus($openFees)->minus($costToClose) : null,
+                    'unrealized' => match (true) {
+                        $costToClose === null => null,
+                        $position->isLong() => $costToClose->minus($openPremium)->minus($openFees),
+                        default => $openPremium->minus($openFees)->minus($costToClose),
+                    },
                     'daysToExpiry' => (int) $today->diffInDays($position->expires_on, false),
                     'underlyingPrice' => $underlying,
                     'underlyingStale' => $underlying !== null && $prices->isStale($underlying),
                     'moneyness' => $underlying === null ? null : self::moneyness($position, $underlying),
-                    'putObligation' => $position->option_type === OptionType::Put ? $position->strike->totalFor($openShares) : Money::zero(),
+                    'putObligation' => $position->option_type === OptionType::Put && ! $position->isLong() ? $position->strike->totalFor($openShares) : Money::zero(),
                 ];
             })
             ->toBase();

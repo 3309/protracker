@@ -29,9 +29,11 @@ use Illuminate\Support\Collection;
  *   shares × price, with their fee;
  * - option premium of sell-to-open trades, with the opening fee (premium of
  *   opening-balance options arrived before the reporting start and is
- *   already inside the opening cash);
- * - option buy-backs, including the buy-back of a roll, with their fee
- *   (expiry and assignment move no option cash);
+ *   already inside the opening cash), and the premium paid for options
+ *   bought to open, with the opening fee;
+ * - option buy-backs, including the buy-back of a roll, and sales to close
+ *   of bought options, with their fee (expiry and assignment move no option
+ *   cash);
  * - confirmed dividends, on the pay date;
  * - standalone deposits, withdrawals, interest and other items.
  *
@@ -157,11 +159,11 @@ class BuildCashLedger
         return $this->forAccounts(OptionPosition::query()->notVoided()->where('origin', '!=', PositionOrigin::OpeningBalance), $accountIds)->get()
             ->map(fn (OptionPosition $position): CashLedgerEntry => new CashLedgerEntry(
                 $position->account_id,
-                CashCategory::OptionPremium,
+                $position->isLong() ? CashCategory::OptionPurchase : CashCategory::OptionPremium,
                 $position->opened_on,
                 $position->opening_settlement_date ?? $position->opened_on,
-                "Sold {$position->contracts} × {$position->description()}",
-                $position->premiumReceived(),
+                ($position->isLong() ? 'Bought' : 'Sold')." {$position->contracts} × {$position->description()}",
+                $position->isLong() ? Money::zero()->minus($position->premiumReceived()) : $position->premiumReceived(),
                 $position->opening_fees,
                 route('options.show', $position),
                 sprintf('2-%010d', $position->id),
@@ -177,10 +179,20 @@ class BuildCashLedger
         $query = OptionEvent::query()
             ->with('position')
             ->notVoided()
-            ->whereIn('event_type', [OptionEventType::BuyToClose, OptionEventType::Rolled]);
+            ->whereIn('event_type', [OptionEventType::BuyToClose, OptionEventType::Rolled, OptionEventType::SellToClose]);
 
         return $this->forAccounts($query, $accountIds)->get()
-            ->map(fn (OptionEvent $event): CashLedgerEntry => new CashLedgerEntry(
+            ->map(fn (OptionEvent $event): CashLedgerEntry => $event->event_type === OptionEventType::SellToClose ? new CashLedgerEntry(
+                $event->account_id,
+                CashCategory::OptionSale,
+                $event->event_date,
+                $event->settlement_date ?? $event->event_date,
+                "Sold to close {$event->contracts} × {$event->position->description()}",
+                $event->closingCost(),
+                $event->fees,
+                route('options.show', $event->option_position_id),
+                sprintf('3-%010d', $event->id),
+            ) : new CashLedgerEntry(
                 $event->account_id,
                 CashCategory::OptionBuyBack,
                 $event->event_date,

@@ -96,7 +96,7 @@ new #[Title('Realized P/L')] class extends ReportPage
                 ['Total', null, null, null, null, null, null, $this->stockTotals['gross'], $this->stockTotals['fees'], $this->stockTotals['net']],
             ]),
             'options' => CsvExport::download('realized-options', [
-                'closed_on', 'account', 'option', 'event', 'contracts', 'premium_kept', 'closing_cost', 'gross_pl', 'fees', 'net_pl',
+                'closed_on', 'account', 'option', 'event', 'contracts', 'opening_premium', 'closing_amount', 'gross_pl', 'fees', 'net_pl',
             ], [
                 ...$this->optionCloses->map(fn (OptionEvent $event) => [
                     $event->event_date, $event->account->displayName(), $event->position->description(), $event->event_type->label(), $event->contracts,
@@ -228,8 +228,8 @@ new #[Title('Realized P/L')] class extends ReportPage
                                 <th class="px-4 py-3 font-medium">Option</th>
                                 <th class="px-4 py-3 font-medium">Event</th>
                                 <th class="px-4 py-3 text-right font-medium">Contracts</th>
-                                <th class="px-4 py-3 text-right font-medium">Premium kept</th>
-                                <th class="px-4 py-3 text-right font-medium">Closing cost</th>
+                                <th class="px-4 py-3 text-right font-medium">Opening premium</th>
+                                <th class="px-4 py-3 text-right font-medium">Closing amount</th>
                                 <th class="px-4 py-3 text-right font-medium">Gross P/L</th>
                                 <th class="px-4 py-3 text-right font-medium">Fees</th>
                                 <th class="px-4 py-3 text-right font-medium">Net P/L</th>

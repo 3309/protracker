@@ -1,4 +1,8 @@
-{{-- Expects $accounts (active accounts, for a new trade) or $optionPosition (when editing). --}}
+{{-- Expects $accounts (active accounts, for a new trade) or $optionPosition (when editing). Set $isPurchase to true for an option bought to open, which also updates the cost summary as you type. --}}
+@php
+    $isPurchase = $isPurchase ?? (isset($optionPosition) && $optionPosition->isLong());
+    $summaryModel = $isPurchase && ! isset($optionPosition) ? 'wire:model.live.debounce.400ms' : 'wire:model';
+@endphp
 <div class="grid gap-4 sm:grid-cols-2">
     @isset($optionPosition)
         <div class="sm:col-span-2">
@@ -9,7 +13,7 @@
     @else
         <div class="sm:col-span-2">
             <label for="account_id" class="form-label">Account</label>
-            <select id="account_id" wire:model="form.account_id" class="form-input">
+            <select id="account_id" {{ $summaryModel }}="form.account_id" class="form-input">
                 <option value="">Choose…</option>
                 @foreach ($accounts as $account)
                     <option value="{{ $account->id }}" wire:key="option-account-{{ $account->id }}">{{ $account->displayName() }} (fee {{ $account->option_fee_per_contract->format() }} / contract)</option>
@@ -26,7 +30,7 @@
     </div>
 
     <div>
-        <label for="option_type" class="form-label">Put or call (sold)</label>
+        <label for="option_type" class="form-label">Put or call ({{ $isPurchase ? 'bought' : 'sold' }})</label>
         <select id="option_type" wire:model="form.option_type" class="form-input">
             <option value="">Choose…</option>
             @foreach (App\Enums\OptionType::cases() as $type)
@@ -68,27 +72,27 @@
 
     <div>
         <label for="contracts" class="form-label">Contracts</label>
-        <input id="contracts" type="number" min="1" step="1" wire:model="form.contracts" class="form-input" placeholder="e.g. 1">
+        <input id="contracts" type="number" min="1" step="1" {{ $summaryModel }}="form.contracts" class="form-input" placeholder="e.g. 1">
         @error('form.contracts') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
         <label for="premium_per_share" class="form-label">Premium per share</label>
-        <input id="premium_per_share" type="text" inputmode="decimal" wire:model="form.premium_per_share" class="form-input" placeholder="e.g. 1.20">
-        <p class="form-help">The price you sold at, e.g. 1.20 means $120 for one 100-share contract.</p>
+        <input id="premium_per_share" type="text" inputmode="decimal" {{ $summaryModel }}="form.premium_per_share" class="form-input" placeholder="e.g. 1.20">
+        <p class="form-help">The price you {{ $isPurchase ? 'paid' : 'sold at' }}, e.g. 1.20 means $120 for one 100-share contract.</p>
         @error('form.premium_per_share') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
         <label for="multiplier" class="form-label">Shares per contract</label>
-        <input id="multiplier" type="number" min="1" step="1" wire:model="form.multiplier" class="form-input">
+        <input id="multiplier" type="number" min="1" step="1" {{ $summaryModel }}="form.multiplier" class="form-input">
         <p class="form-help">Normally 100. Change it only for an adjusted contract.</p>
         @error('form.multiplier') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
         <label for="opening_fees" class="form-label">Opening fee</label>
-        <input id="opening_fees" type="text" inputmode="decimal" wire:model="form.opening_fees" class="form-input" placeholder="Leave blank to use the account default">
+        <input id="opening_fees" type="text" inputmode="decimal" {{ $summaryModel }}="form.opening_fees" class="form-input" placeholder="Leave blank to use the account default">
         <p class="form-help">Blank uses the account's default fee per contract × contracts. Enter the actual fee if it differs.</p>
         @error('form.opening_fees') <p class="form-error">{{ $message }}</p> @enderror
     </div>

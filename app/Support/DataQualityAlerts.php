@@ -101,7 +101,9 @@ final class DataQualityAlerts
             ->orderBy('expires_on')
             ->get()
             ->map(fn (OptionPosition $position) => [
-                'message' => "{$position->description()} is past expiration. Record whether it expired worthless or was assigned.",
+                'message' => $position->isLong()
+                    ? "{$position->description()} is past expiration. Record whether it expired worthless or was sold to close."
+                    : "{$position->description()} is past expiration. Record whether it expired worthless or was assigned.",
                 'url' => route('options.show', $position),
             ])
             ->all());

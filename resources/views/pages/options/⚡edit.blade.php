@@ -12,7 +12,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Correct option sale')] class extends Component
+new #[Title('Correct option trade')] class extends Component
 {
     public OptionPosition $optionPosition;
 
@@ -94,7 +94,7 @@ new #[Title('Correct option sale')] class extends Component
                     <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Voided</span>
                 @endif
             </h1>
-            <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $optionPosition->account->displayName() }} · Sell to open</p>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $optionPosition->account->displayName() }} · {{ $optionPosition->origin->label() }}</p>
         </div>
         <a href="{{ route('options.show', $optionPosition) }}" class="btn-secondary" wire:navigate>Back to position</a>
     </div>
