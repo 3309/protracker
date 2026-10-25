@@ -11,6 +11,7 @@ use App\Models\BrokerBalance;
 use App\Models\OptionPosition;
 use App\Models\Setting;
 use App\Support\CsvExport;
+use App\Support\DashboardCharts;
 use App\Support\DataQualityAlerts;
 use App\Support\FeeReport;
 use App\Support\Money;
@@ -199,6 +200,48 @@ new #[Title('Dashboard')] class extends ReportPage
     }
 
     /**
+     * @return list<array{month: CarbonImmutable, stocks: Money, options: Money, dividends: Money, total: Money, cumulative: Money}>
+     */
+    #[Computed]
+    public function realizedChart(): array
+    {
+        return $this->realized === null || $this->reportingPeriod === null
+            ? []
+            : DashboardCharts::realizedByMonth($this->realized, $this->reportingPeriod, $this->today());
+    }
+
+    /**
+     * @return array{dates: list<CarbonImmutable>, brokers: array<string, array{label: string, values: list<Money>}>, total: list<Money>}|null
+     */
+    #[Computed]
+    public function cashChart(): ?array
+    {
+        return $this->reportingPeriod === null
+            ? null
+            : DashboardCharts::cashByMonth($this->cash->map(fn (array $row) => $row['account']), $this->reportingPeriod, $this->today());
+    }
+
+    /**
+     * @return list<array{date: CarbonImmutable, daysToExpiry: int, shortPuts: int, shortCalls: int, long: int}>
+     */
+    #[Computed]
+    public function expirationChart(): array
+    {
+        return DashboardCharts::openContractsByExpiration($this->open);
+    }
+
+    /**
+     * The account, broker and ticker filters, carried into the pages the charts link to.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function chartLinkParams(): array
+    {
+        return array_filter(['account' => $this->account, 'broker' => $this->broker, 'ticker' => $this->ticker], fn (string $value) => $value !== '');
+    }
+
+    /**
      * @return list<array{level: string, title: string, message: string, url: string}>  level: critical, warning or info
      */
     #[Computed]
@@ -345,6 +388,63 @@ new #[Title('Dashboard')] class extends ReportPage
             </div>
         </section>
     @endif
+
+    {{-- Charts --}}
+    <section class="flex flex-col gap-3">
+        <h2 class="section-title">Charts</h2>
+        <p class="text-sm text-zinc-600 dark:text-zinc-400">
+            They follow the filters above. Hover over a bar or point for exact amounts; click a bar to see the records behind it.
+        </p>
+
+        <div class="grid gap-4 xl:grid-cols-2">
+            <div class="card flex flex-col gap-3 p-5 xl:col-span-2">
+                <div>
+                    <h3 class="font-semibold">
+                        Realized P/L by month{{ $this->reportingPeriod ? ' · '.$this->reportingPeriod->label() : '' }}
+                        <x-tip text="Stocks sold, options closed, expired or assigned, and confirmed dividends, net of fees, by the month they happened. Open positions are not included." />
+                    </h3>
+                    <p class="muted">Bars: each month's result. Line: the running total from the start of the period, not your account value.</p>
+                </div>
+                @if ($this->realizedChart === [])
+                    <x-empty-state icon="report">No months to show for this period yet.</x-empty-state>
+                @elseif (collect($this->realizedChart)->every(fn (array $row) => $row['total']->isZero() && $row['cumulative']->isZero()))
+                    <x-empty-state icon="report">Nothing realized in this period yet. Results appear when shares are sold, options close or dividends are confirmed.</x-empty-state>
+                @else
+                    <x-chart.realized-by-month :rows="$this->realizedChart" :link-params="$this->chartLinkParams" />
+                @endif
+            </div>
+
+            <div class="card flex flex-col gap-3 p-5">
+                <div>
+                    <h3 class="font-semibold">
+                        Cash balance by broker
+                        <x-tip text="Total cash from the cash ledger, including trades that have not settled yet. The ticker filter does not apply to cash." />
+                    </h3>
+                    <p class="muted">On the first day of the period and at the end of each month; the last point is today.</p>
+                </div>
+                @if ($this->cashChart === null || $this->cashChart['dates'] === [] || $this->cashChart['brokers'] === [])
+                    <x-empty-state icon="cash">No cash to show yet. Add an account and its opening cash.</x-empty-state>
+                @else
+                    <x-chart.cash-by-month :chart="$this->cashChart" />
+                @endif
+            </div>
+
+            <div class="card flex flex-col gap-3 p-5">
+                <div>
+                    <h3 class="font-semibold">
+                        Open option contracts by expiration
+                        <x-tip text="Contracts still open on each expiration date. Partly closed positions count only their open contracts." />
+                    </h3>
+                    <p class="muted">Soonest first. Click a bar to open those options.</p>
+                </div>
+                @if ($this->expirationChart === [])
+                    <x-empty-state icon="options">No open option contracts.</x-empty-state>
+                @else
+                    <x-chart.expirations :rows="$this->expirationChart" :link-params="$this->chartLinkParams" />
+                @endif
+            </div>
+        </div>
+    </section>
 
     {{-- Open positions in detail --}}
     @if ($this->open->stocks->isNotEmpty())
