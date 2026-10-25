@@ -5,6 +5,7 @@ use App\Models\AccountOpening;
 use App\Models\OptionPosition;
 use App\Models\Setting;
 use App\Models\StockLot;
+use App\Models\StockTrade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -68,17 +69,18 @@ describe('reporting start date lock', function () {
         $createOpeningBalance();
 
         Livewire::test('pages::settings.general')
-            ->assertSee('Locked because opening balances have been entered as of this date.')
+            ->assertSee('Locked because opening balances or trades have been entered.')
             ->set('reporting_start_date', '2027-01-01')
             ->call('save')
             ->assertHasErrors('reporting_start_date')
-            ->assertSee('cannot change because opening balances have been entered');
+            ->assertSee('cannot change because opening balances or trades have been entered');
 
         expect(Setting::current()->reporting_start_date->format('Y-m-d'))->toBe('2026-01-01');
     })->with([
         'starting cash' => fn () => AccountOpening::factory()->create(),
         'stock lot' => fn () => StockLot::factory()->create(),
         'option' => fn () => OptionPosition::factory()->create(),
+        'stock trade' => fn () => StockTrade::factory()->create(),
     ]);
 
     it('still saves the other settings while the date is locked', function () {

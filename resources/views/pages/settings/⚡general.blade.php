@@ -56,7 +56,7 @@ new #[Title('Settings')] class extends Component
         $settings = Setting::current();
 
         if ($validated['reporting_start_date'] !== $settings->reporting_start_date->format('Y-m-d') && $this->reportingStartDateIsLocked) {
-            $this->addError('reporting_start_date', 'The reporting start date cannot change because opening balances have been entered as of this date.');
+            $this->addError('reporting_start_date', 'The reporting start date cannot change because opening balances or trades have been entered.');
 
             return;
         }
@@ -94,7 +94,7 @@ new #[Title('Settings')] class extends Component
             <label for="reporting_start_date" class="form-label">Reporting start date</label>
             <input id="reporting_start_date" type="date" wire:model="reporting_start_date" class="form-input" @disabled($this->reportingStartDateIsLocked)>
             @if ($this->reportingStartDateIsLocked)
-                <p class="form-help">Locked because opening balances have been entered as of this date. Changing it would make them wrong.</p>
+                <p class="form-help">Locked because opening balances or trades have been entered. Changing it would make them wrong.</p>
             @else
                 <p class="form-help">Reports and totals start on this date. Positions held before it are entered as opening balances.</p>
             @endif

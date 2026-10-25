@@ -7,6 +7,7 @@ use App\Models\AccountOpening;
 use App\Models\OptionPosition;
 use App\Models\Setting;
 use App\Models\StockLot;
+use App\Models\StockTrade;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -60,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
             'option_position' => OptionPosition::class,
             'setting' => Setting::class,
             'stock_lot' => StockLot::class,
+            'stock_trade' => StockTrade::class,
             'user' => User::class,
         ]);
     }

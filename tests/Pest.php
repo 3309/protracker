@@ -1,5 +1,14 @@
 <?php
 
+use App\Actions\Stocks\SaveStockTrade;
+use App\Enums\TradeSide;
+use App\Models\Account;
+use App\Models\StockTrade;
+use App\Support\MarketCalendar;
+use App\Support\Money;
+use App\Support\Quantity;
+use App\Support\UnitPrice;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,7 +53,20 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Record a stock trade through the real stock engine, so its lot and the
+ * FIFO sale allocations are created exactly as the app would create them.
+ */
+function recordStockTrade(Account $account, TradeSide $side, string $ticker, string $tradeDate, string $shares, string $price, string $fee = '0'): StockTrade
 {
-    // ..
+    return app(SaveStockTrade::class)->create([
+        'account_id' => $account->id,
+        'side' => $side,
+        'ticker' => $ticker,
+        'trade_date' => $tradeDate,
+        'settlement_date' => MarketCalendar::stockSettlementDate(CarbonImmutable::parse($tradeDate)),
+        'shares' => Quantity::fromDecimal($shares),
+        'price_per_share' => UnitPrice::fromDecimal($price),
+        'fees' => Money::fromDecimal($fee),
+    ]);
 }

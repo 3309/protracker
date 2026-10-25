@@ -45,6 +45,34 @@ it('rejects a multiplier that is not a number', function () {
     Money::fromCents(100)->times('abc');
 })->throws(InvalidArgumentException::class, '[abc] is not a number.');
 
+it('takes a proportional share rounded to the cent', function (int $cents, int $part, int $whole, int $expectedCents) {
+    expect(Money::fromCents($cents)->share($part, $whole)->cents)->toBe($expectedCents);
+})->with([
+    'a third of $1.00' => [100, 1, 3, 33],
+    'two thirds of $1.00' => [100, 2, 3, 67],
+    'an exact half cent rounds away from zero' => [1, 1, 2, 1],
+    'the whole amount' => [67, 150, 150, 67],
+    'nothing' => [67, 0, 150, 0],
+]);
+
+it('splits an amount into pieces that add up exactly using running totals', function () {
+    $fee = Money::fromCents(100);
+    $pieces = [];
+    $before = 0;
+
+    foreach ([1, 1, 1] as $part) {
+        $pieces[] = $fee->share($before + $part, 3)->minus($fee->share($before, 3))->cents;
+        $before += $part;
+    }
+
+    expect($pieces)->toBe([33, 34, 33])
+        ->and(array_sum($pieces))->toBe(100);
+});
+
+it('rejects a share of a zero whole', function () {
+    Money::fromCents(100)->share(1, 0);
+})->throws(InvalidArgumentException::class);
+
 it('adds and subtracts exactly', function () {
     $cashFlow = Money::fromDecimal('-5000')
         ->plus(Money::fromDecimal('120'))

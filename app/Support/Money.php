@@ -83,6 +83,29 @@ final readonly class Money implements Stringable
         return new self((int) $result->value);
     }
 
+    /**
+     * The part of this amount that belongs to $part out of $whole, e.g. the
+     * fee for 50 of 150 shares, rounded to the cent half away from zero.
+     *
+     * To split an amount into pieces that add up exactly, take each piece as
+     * share(running total after it) minus share(running total before it).
+     *
+     * @throws InvalidArgumentException
+     */
+    public function share(int $part, int $whole): self
+    {
+        if ($whole <= 0) {
+            throw new InvalidArgumentException('The whole must be more than zero.');
+        }
+
+        $result = (new Number($this->cents))
+            ->mul($part)
+            ->div($whole, 20)
+            ->round(0, RoundingMode::HalfAwayFromZero);
+
+        return new self((int) $result->value);
+    }
+
     public function isZero(): bool
     {
         return $this->cents === 0;

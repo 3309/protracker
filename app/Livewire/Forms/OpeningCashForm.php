@@ -3,7 +3,7 @@
 namespace App\Livewire\Forms;
 
 use App\Enums\OpeningBalanceSource;
-use App\Livewire\Forms\Concerns\OpeningBalanceInput;
+use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\Account;
 use App\Models\AccountOpening;
 use App\Support\InputFormat;
@@ -13,7 +13,7 @@ use Livewire\Form;
 
 class OpeningCashForm extends Form
 {
-    use OpeningBalanceInput;
+    use SharedFormInput;
 
     public ?AccountOpening $opening = null;
 

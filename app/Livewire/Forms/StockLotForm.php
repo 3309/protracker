@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Forms;
 
+use App\Actions\Stocks\RebuildStockAllocations;
 use App\Enums\OpeningBalanceSource;
 use App\Enums\PositionOrigin;
-use App\Livewire\Forms\Concerns\OpeningBalanceInput;
+use App\Exceptions\InsufficientSharesException;
+use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\Account;
 use App\Models\StockLot;
 use App\Support\InputFormat;
@@ -19,7 +21,7 @@ use Livewire\Form;
  */
 class StockLotForm extends Form
 {
-    use OpeningBalanceInput;
+    use SharedFormInput;
 
     public ?StockLot $stockLot = null;
 
@@ -96,24 +98,56 @@ class StockLotForm extends Form
         ];
     }
 
+    /**
+     * Add the lot. Sales already recorded for the ticker are recalculated,
+     * because an older lot changes which shares they used.
+     */
     public function store(Account $account): StockLot
     {
         $this->validate();
 
-        return StockLot::create([
+        $attributes = $this->lotAttributes();
+
+        return app(RebuildStockAllocations::class)->afterChange($account->id, [$attributes['ticker']], fn () => StockLot::create([
             'account_id' => $account->id,
             'origin' => PositionOrigin::OpeningBalance,
-            ...$this->lotAttributes(),
-        ]);
+            ...$attributes,
+        ]));
     }
 
-    public function update(): void
+    /**
+     * Save a correction and recalculate the ticker's sales. Returns false,
+     * with an error on the shares field, when the correction would leave a
+     * recorded sale without enough shares.
+     */
+    public function update(): bool
     {
         $this->validate();
 
-        $this->stockLot?->withAuditReason($this->reason)->update($this->lotAttributes());
+        $lot = $this->stockLot;
+
+        if ($lot === null) {
+            return false;
+        }
+
+        $attributes = $this->lotAttributes();
+
+        try {
+            app(RebuildStockAllocations::class)->afterChange(
+                $lot->account_id,
+                [$lot->ticker, $attributes['ticker']],
+                fn () => $lot->withAuditReason($this->reason)->update($attributes),
+            );
+        } catch (InsufficientSharesException $exception) {
+            $lot->refresh();
+            $this->addError('shares', $exception->getMessage());
+
+            return false;
+        }
 
         $this->reset('reason');
+
+        return true;
     }
 
     /**

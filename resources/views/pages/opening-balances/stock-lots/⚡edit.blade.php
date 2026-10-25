@@ -1,6 +1,8 @@
 <?php
 
+use App\Actions\Stocks\RebuildStockAllocations;
 use App\Enums\PositionOrigin;
+use App\Exceptions\InsufficientSharesException;
 use App\Livewire\Forms\StockLotForm;
 use App\Models\AuditEntry;
 use App\Models\Setting;
@@ -28,16 +30,20 @@ new #[Title('Edit opening stock lot')] class extends Component
     {
         abort_if($this->stockLot->isVoided(), 403, 'A voided stock lot cannot be changed.');
 
-        $this->form->update();
+        $saved = $this->form->update();
 
         $this->stockLot->refresh();
+
+        if (! $saved) {
+            return;
+        }
 
         unset($this->auditEntries);
 
         session()->now('message', 'Stock lot saved.');
     }
 
-    public function void(): void
+    public function void(RebuildStockAllocations $rebuildAllocations): void
     {
         abort_if($this->stockLot->isVoided(), 403, 'This stock lot is already voided.');
 
@@ -46,7 +52,18 @@ new #[Title('Edit opening stock lot')] class extends Component
             ['form.reason.required' => 'Please explain why you are voiding this entry. It is saved in the audit history.'],
         );
 
-        $this->stockLot->void($this->form->reason);
+        try {
+            $rebuildAllocations->afterChange(
+                $this->stockLot->account_id,
+                [$this->stockLot->ticker],
+                fn () => $this->stockLot->void($this->form->reason),
+            );
+        } catch (InsufficientSharesException $exception) {
+            $this->stockLot->refresh();
+            $this->addError('form.reason', 'This lot cannot be voided because recorded sales use its shares. '.$exception->getMessage());
+
+            return;
+        }
 
         $this->form->reset('reason');
 

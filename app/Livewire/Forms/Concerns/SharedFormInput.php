@@ -7,9 +7,9 @@ use App\Support\FixedDecimal;
 use Closure;
 
 /**
- * Checks and clean-up shared by the opening-balance forms.
+ * Checks and clean-up shared by the data-entry forms.
  */
-trait OpeningBalanceInput
+trait SharedFormInput
 {
     /**
      * The reporting start date as "YYYY-MM-DD".

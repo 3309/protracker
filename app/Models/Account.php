@@ -97,6 +97,14 @@ class Account extends Model
     }
 
     /**
+     * @return HasMany<StockTrade, $this>
+     */
+    public function stockTrades(): HasMany
+    {
+        return $this->hasMany(StockTrade::class);
+    }
+
+    /**
      * @return HasMany<OptionPosition, $this>
      */
     public function optionPositions(): HasMany

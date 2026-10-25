@@ -3,8 +3,10 @@
 use App\Enums\AuditEvent;
 use App\Enums\OpeningBalanceSource;
 use App\Enums\PositionOrigin;
+use App\Enums\TradeSide;
 use App\Models\Account;
 use App\Models\StockLot;
+use App\Models\StockSaleAllocation;
 use App\Models\User;
 use App\Support\Quantity;
 use App\Support\UnitPrice;
@@ -155,6 +157,65 @@ describe('edit', function () {
             ->set('form.reason', 'Trying anyway')
             ->call('save')
             ->assertForbidden();
+    });
+});
+
+describe('lots that sales have used', function () {
+    beforeEach(function () {
+        $this->lot = StockLot::factory()->for($this->account)->create([
+            'ticker' => 'XYZ',
+            'acquired_on' => '2025-06-02',
+            'shares' => Quantity::fromInteger(100),
+            'cost_per_share' => UnitPrice::fromDecimal('50'),
+        ]);
+
+        recordStockTrade($this->account, TradeSide::Sell, 'XYZ', '2026-02-10', '80', '52');
+    });
+
+    it('cannot be voided', function () {
+        Livewire::test('pages::opening-balances.stock-lots.edit', ['stockLot' => $this->lot])
+            ->set('form.reason', 'Mistake')
+            ->call('void')
+            ->assertHasErrors('form.reason')
+            ->assertSee('This lot cannot be voided because recorded sales use its shares.');
+
+        expect($this->lot->fresh()->isVoided())->toBeFalse();
+    });
+
+    it('cannot be reduced below the shares already sold', function () {
+        Livewire::test('pages::opening-balances.stock-lots.edit', ['stockLot' => $this->lot])
+            ->set('form.shares', '50')
+            ->set('form.reason', 'Fewer shares')
+            ->call('save')
+            ->assertHasErrors('form.shares')
+            ->assertSee('Not enough XYZ shares');
+
+        expect($this->lot->fresh()->shares->format())->toBe('100');
+    });
+
+    it('recalculates the sale when its cost is corrected', function () {
+        Livewire::test('pages::opening-balances.stock-lots.edit', ['stockLot' => $this->lot])
+            ->set('form.cost_per_share', '40')
+            ->set('form.reason', 'Statement shows $40')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        expect(StockSaleAllocation::sole()->grossProfit()->format())->toBe('$960.00');
+    });
+
+    it('re-runs oldest-first matching when an older lot is added', function () {
+        Livewire::test('pages::opening-balances.stock-lots.create', ['account' => $this->account])
+            ->set('form.ticker', 'XYZ')
+            ->set('form.acquired_on', '2024-03-01')
+            ->set('form.shares', '80')
+            ->set('form.cost_per_share', '30')
+            ->set('form.source', 'broker_statement')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        expect(StockSaleAllocation::with('lot')->sole())
+            ->lot->acquired_on->format('Y-m-d')->toBe('2024-03-01')
+            ->grossProfit()->format()->toBe('$1,760.00');
     });
 });
 

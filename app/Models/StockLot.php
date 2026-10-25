@@ -13,12 +13,14 @@ use App\Support\Quantity;
 use App\Support\UnitPrice;
 use Carbon\CarbonImmutable;
 use Database\Factories\StockLotFactory;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -30,6 +32,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $account_id
+ * @property int|null $stock_trade_id
  * @property string $ticker
  * @property PositionOrigin $origin
  * @property CarbonImmutable $acquired_on
@@ -45,6 +48,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'account_id',
+    'stock_trade_id',
     'ticker',
     'origin',
     'acquired_on',
@@ -104,10 +108,74 @@ class StockLot extends Model
     }
 
     /**
+     * The buy that created this lot. Opening-balance lots have none.
+     *
+     * @return BelongsTo<StockTrade, $this>
+     */
+    public function trade(): BelongsTo
+    {
+        return $this->belongsTo(StockTrade::class, 'stock_trade_id');
+    }
+
+    /**
+     * The sale pieces that used shares from this lot.
+     *
+     * @return HasMany<StockSaleAllocation, $this>
+     */
+    public function saleAllocations(): HasMany
+    {
+        return $this->hasMany(StockSaleAllocation::class);
+    }
+
+    /**
+     * Load the number of shares sold from each lot, optionally only counting
+     * sales on or before a date, as the "sold_units" attribute.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function withSoldShares(Builder $query, ?DateTimeInterface $asOf = null): void
+    {
+        $query->withSum([
+            'saleAllocations as sold_units' => fn (Builder $allocations) => $asOf === null
+                ? $allocations
+                : $allocations->where('sold_on', '<=', $asOf->format('Y-m-d')),
+        ], 'shares');
+    }
+
+    /**
      * Shares × cost per share, rounded to the cent. Fees are not included.
      */
     public function costBasis(): Money
     {
         return $this->cost_per_share->totalFor($this->shares);
+    }
+
+    /**
+     * Shares sold from this lot so far, using the loaded "sold_units"
+     * attribute when present.
+     */
+    public function soldShares(): Quantity
+    {
+        $soldUnits = array_key_exists('sold_units', $this->getAttributes())
+            ? $this->getAttribute('sold_units')
+            : $this->saleAllocations()->sum('shares');
+
+        return Quantity::fromUnits((int) $soldUnits);
+    }
+
+    public function remainingShares(): Quantity
+    {
+        return Quantity::fromUnits($this->shares->units - $this->soldShares()->units);
+    }
+
+    /**
+     * The cost of the shares not yet sold. Worked out as the whole lot's cost
+     * minus the cost of the shares sold, so the pieces always add up to the
+     * lot's cost basis exactly.
+     */
+    public function remainingCostBasis(): Money
+    {
+        return $this->costBasis()->minus($this->cost_per_share->totalFor($this->soldShares()));
     }
 }

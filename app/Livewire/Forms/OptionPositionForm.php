@@ -6,7 +6,7 @@ use App\Enums\OpeningBalanceSource;
 use App\Enums\OptionSide;
 use App\Enums\OptionType;
 use App\Enums\PositionOrigin;
-use App\Livewire\Forms\Concerns\OpeningBalanceInput;
+use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\Account;
 use App\Models\OptionPosition;
 use App\Support\InputFormat;
@@ -21,7 +21,7 @@ use Livewire\Form;
  */
 class OptionPositionForm extends Form
 {
-    use OpeningBalanceInput;
+    use SharedFormInput;
 
     public ?OptionPosition $optionPosition = null;
 
