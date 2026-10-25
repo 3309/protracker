@@ -9,6 +9,7 @@
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
+        @include('partials.theme-script')
         @fonts
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
@@ -45,7 +46,11 @@
                     >{{ $link['label'] }}</a>
                 @endforeach
 
-                <form method="POST" action="{{ route('logout') }}" class="ms-auto">
+                <div class="ms-auto">
+                    @include('partials.theme-switcher')
+                </div>
+
+                <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">Log out</button>
                 </form>

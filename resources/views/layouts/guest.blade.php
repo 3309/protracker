@@ -9,10 +9,15 @@
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
+        @include('partials.theme-script')
         @fonts
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="flex min-h-screen items-center justify-center bg-zinc-50 p-4 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+        <div class="fixed top-4 right-4">
+            @include('partials.theme-switcher')
+        </div>
+
         <main class="w-full max-w-sm">
             {{ $slot }}
         </main>
