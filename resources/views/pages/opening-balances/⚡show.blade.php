@@ -142,7 +142,7 @@ new #[Title('Opening balances')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">{{ $account->displayName() }}</h1>
+            <h1 class="page-title">{{ $account->displayName() }}</h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">
                 Opening balance — as of {{ $this->asOfDate->format('F j, Y') }} · Status: <strong>{{ $this->status->label() }}</strong>
             </p>
@@ -151,13 +151,13 @@ new #[Title('Opening balances')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     {{-- Starting cash --}}
     <form wire:submit="saveCash" class="card flex flex-col gap-4">
         <div>
-            <h2 class="text-lg font-semibold">1. Starting cash</h2>
+            <h2 class="section-title">1. Starting cash</h2>
             <p class="form-help">
                 The cash in the account at the start of {{ $this->asOfDate->format('F j, Y') }}. It is a starting point,
                 not a deposit or income. Enter a negative amount if you owed the broker money.
@@ -166,7 +166,7 @@ new #[Title('Opening balances')] class extends Component
 
         <div class="grid gap-4 sm:grid-cols-2">
             <div>
-                <label for="cash_balance" class="form-label">Starting cash</label>
+                <label for="cash_balance" class="form-label required">Starting cash</label>
                 <input id="cash_balance" type="text" inputmode="decimal" wire:model="cash.cash_balance" class="form-input" placeholder="e.g. 2000.00">
                 @error('cash.cash_balance') <p class="form-error">{{ $message }}</p> @enderror
             </div>
@@ -190,7 +190,7 @@ new #[Title('Opening balances')] class extends Component
         @endif
 
         <div>
-            <button type="submit" class="btn-primary">Save starting cash</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save starting cash</button>
         </div>
     </form>
 
@@ -198,7 +198,7 @@ new #[Title('Opening balances')] class extends Component
     <section class="card flex flex-col gap-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <h2 class="text-lg font-semibold">2. Stock lots already held</h2>
+                <h2 class="section-title">2. Stock lots already held</h2>
                 <p class="form-help">One line per purchase, with its original date and cost. Enter only the shares still held on {{ $this->asOfDate->format('F j, Y') }}.</p>
             </div>
             <a href="{{ route('opening-balances.stock-lots.create', $account) }}" class="btn-secondary" wire:navigate>Add stock lot</a>
@@ -208,40 +208,40 @@ new #[Title('Opening balances')] class extends Component
             <p class="text-sm text-zinc-500 dark:text-zinc-400">No stock lots entered.</p>
         @else
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="py-2 pe-4 font-medium">Ticker</th>
-                            <th class="py-2 pe-4 font-medium">Bought on</th>
-                            <th class="py-2 pe-4 text-right font-medium">Shares</th>
-                            <th class="py-2 pe-4 text-right font-medium">Cost / share</th>
-                            <th class="py-2 pe-4 text-right font-medium">Cost basis</th>
-                            <th class="py-2 pe-4 font-medium">Source</th>
+                            <th>Ticker</th>
+                            <th>Bought on</th>
+                            <th class="text-right">Shares</th>
+                            <th class="text-right">Cost / share</th>
+                            <th class="text-right">Cost basis</th>
+                            <th>Source</th>
                             <th class="py-2"></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->stockLots as $lot)
                             <tr wire:key="lot-{{ $lot->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $lot->isVoided()])>
-                                <td class="py-2 pe-4 font-medium">{{ $lot->ticker }}</td>
-                                <td class="py-2 pe-4">{{ $lot->acquired_on->format('M j, Y') }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $lot->shares->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $lot->cost_per_share->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $lot->costBasis()->format() }}</td>
-                                <td class="py-2 pe-4">{{ $lot->source?->label() }}</td>
+                                <td class="font-medium">{{ $lot->ticker }}</td>
+                                <td>{{ $lot->acquired_on->format('M j, Y') }}</td>
+                                <td class="num">{{ $lot->shares->format() }}</td>
+                                <td class="num">{{ $lot->cost_per_share->format() }}</td>
+                                <td class="num">{{ $lot->costBasis()->format() }}</td>
+                                <td>{{ $lot->source?->label() }}</td>
                                 <td class="py-2 text-right">
                                     @if ($lot->isVoided())
                                         <span>Voided</span>
                                     @endif
-                                    <a href="{{ route('opening-balances.stock-lots.edit', $lot) }}" class="underline underline-offset-4" wire:navigate>{{ $lot->isVoided() ? 'View' : 'Edit' }}</a>
+                                    <a href="{{ route('opening-balances.stock-lots.edit', $lot) }}" class="link" wire:navigate>{{ $lot->isVoided() ? 'View' : 'Edit' }}</a>
                                 </td>
                             </tr>
                         @endforeach
                     </tbody>
-                    <tfoot class="border-t border-zinc-200 dark:border-zinc-700">
+                    <tfoot>
                         <tr>
-                            <td colspan="4" class="py-2 pe-4 font-medium">Total cost basis (excluding voided lots)</td>
-                            <td class="py-2 pe-4 text-right font-medium tabular-nums">{{ $this->totalCostBasis->format() }}</td>
+                            <td colspan="4" class="font-medium">Total cost basis (excluding voided lots)</td>
+                            <td class="text-right font-medium tabular-nums">{{ $this->totalCostBasis->format() }}</td>
                             <td colspan="2"></td>
                         </tr>
                     </tfoot>
@@ -254,7 +254,7 @@ new #[Title('Opening balances')] class extends Component
     <section class="card flex flex-col gap-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <h2 class="text-lg font-semibold">3. Options still open</h2>
+                <h2 class="section-title">3. Options still open</h2>
                 <p class="form-help">Options you sold before {{ $this->asOfDate->format('F j, Y') }} that had not yet closed, expired or been assigned. Enter only the contracts still open.</p>
             </div>
             <a href="{{ route('opening-balances.options.create', $account) }}" class="btn-secondary" wire:navigate>Add option</a>
@@ -264,37 +264,37 @@ new #[Title('Opening balances')] class extends Component
             <p class="text-sm text-zinc-500 dark:text-zinc-400">No open options entered.</p>
         @else
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="py-2 pe-4 font-medium">Option</th>
-                            <th class="py-2 pe-4 font-medium">Opened on</th>
-                            <th class="py-2 pe-4 text-right font-medium">Contracts</th>
-                            <th class="py-2 pe-4 text-right font-medium">Premium / share</th>
-                            <th class="py-2 pe-4 text-right font-medium">Premium received</th>
-                            <th class="py-2 pe-4 text-right font-medium">Opening fees</th>
+                            <th>Option</th>
+                            <th>Opened on</th>
+                            <th class="text-right">Contracts</th>
+                            <th class="text-right">Premium / share</th>
+                            <th class="text-right">Premium received</th>
+                            <th class="text-right">Opening fees</th>
                             <th class="py-2"></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->optionPositions as $option)
                             <tr wire:key="option-{{ $option->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $option->isVoided()])>
-                                <td class="py-2 pe-4 font-medium">{{ $option->description() }}</td>
-                                <td class="py-2 pe-4">{{ $option->opened_on->format('M j, Y') }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">
+                                <td class="font-medium">{{ $option->description() }}</td>
+                                <td>{{ $option->opened_on->format('M j, Y') }}</td>
+                                <td class="num">
                                     {{ $option->contracts }}
                                     @if ($option->multiplier !== 100)
                                         <span class="text-xs text-zinc-500">(× {{ $option->multiplier }})</span>
                                     @endif
                                 </td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $option->premium_per_share->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $option->premiumReceived()->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $option->opening_fees->format() }}</td>
+                                <td class="num">{{ $option->premium_per_share->format() }}</td>
+                                <td class="num">{{ $option->premiumReceived()->format() }}</td>
+                                <td class="num">{{ $option->opening_fees->format() }}</td>
                                 <td class="py-2 text-right">
                                     @if ($option->isVoided())
                                         <span>Voided</span>
                                     @endif
-                                    <a href="{{ route('opening-balances.options.edit', $option) }}" class="underline underline-offset-4" wire:navigate>{{ $option->isVoided() ? 'View' : 'Edit' }}</a>
+                                    <a href="{{ route('opening-balances.options.edit', $option) }}" class="link" wire:navigate>{{ $option->isVoided() ? 'View' : 'Edit' }}</a>
                                 </td>
                             </tr>
                         @endforeach
@@ -307,7 +307,7 @@ new #[Title('Opening balances')] class extends Component
 
     {{-- Completion --}}
     <section class="card flex flex-col gap-3">
-        <h2 class="text-lg font-semibold">4. Finish</h2>
+        <h2 class="section-title">4. Finish</h2>
 
         @if ($this->status === OpeningStatus::Complete)
             <p class="text-sm">This account's opening balances are marked complete. You can still correct any entry; every change is recorded.</p>

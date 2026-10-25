@@ -93,7 +93,7 @@ new #[Title('Prices')] class extends ReportPage
 
 <div class="flex flex-col gap-6">
     <div>
-        <h1 class="text-2xl font-semibold">Prices</h1>
+        <h1 class="page-title">Prices</h1>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">
             Prices you enter by hand, used to estimate unrealized profit. They are not live market quotes and never change realized profit.
             A price older than {{ $this->prices->staleAfterDays() }} days is marked stale (you can change this in Settings).
@@ -101,15 +101,15 @@ new #[Title('Prices')] class extends ReportPage
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     <form wire:submit="save" class="card flex flex-col gap-4">
-        <h2 class="text-lg font-semibold">Enter a price</h2>
+        <h2 class="section-title">Enter a price</h2>
 
         <div class="grid gap-4 sm:grid-cols-3">
             <div>
-                <label for="instrument" class="form-label">For</label>
+                <label for="instrument" class="form-label required">For</label>
                 <select id="instrument" wire:model.live="form.instrument" class="form-input">
                     @foreach (PriceInstrument::cases() as $instrument)
                         <option value="{{ $instrument->value }}">{{ $instrument->label() }}</option>
@@ -117,12 +117,12 @@ new #[Title('Prices')] class extends ReportPage
                 </select>
             </div>
             <div>
-                <label for="price_ticker" class="form-label">Ticker</label>
+                <label for="price_ticker" class="form-label required">Ticker</label>
                 <input id="price_ticker" type="text" wire:model="form.ticker" class="form-input uppercase">
                 @error('form.ticker') <p class="form-error">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label for="price_price" class="form-label">{{ $form->isOption() ? 'Option price per share' : 'Price per share' }}</label>
+                <label for="price_price" class="form-label required">{{ $form->isOption() ? 'Option price per share' : 'Price per share' }}</label>
                 <input id="price_price" type="text" inputmode="decimal" wire:model="form.price" class="form-input" placeholder="e.g. 52.10">
                 @error('form.price') <p class="form-error">{{ $message }}</p> @enderror
             </div>
@@ -151,7 +151,7 @@ new #[Title('Prices')] class extends ReportPage
             @endif
 
             <div>
-                <label for="price_as_of_date" class="form-label">As of date</label>
+                <label for="price_as_of_date" class="form-label required">As of date</label>
                 <input id="price_as_of_date" type="date" wire:model="form.as_of_date" class="form-input">
                 @error('form.as_of_date') <p class="form-error">{{ $message }}</p> @enderror
             </div>
@@ -168,34 +168,34 @@ new #[Title('Prices')] class extends ReportPage
         </div>
 
         <div>
-            <button type="submit" class="btn-primary">Save price</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save price</button>
         </div>
     </form>
 
     <section class="card flex flex-col gap-3">
-        <h2 class="text-lg font-semibold">Stocks you hold</h2>
+        <h2 class="section-title">Stocks you hold</h2>
         @if ($this->heldTickers->isEmpty())
             <p class="text-sm text-zinc-500">No shares held.</p>
         @else
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="py-2 pe-4 font-medium">Ticker</th>
-                        <th class="py-2 pe-4 text-right font-medium">Latest price</th>
-                        <th class="py-2 pe-4 font-medium">As of</th>
-                        <th class="py-2 pe-4 font-medium">Status</th>
+                        <th>Ticker</th>
+                        <th class="text-right">Latest price</th>
+                        <th>As of</th>
+                        <th>Status</th>
                         <th class="py-2"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @foreach ($this->heldTickers as $heldTicker)
                         @php $latest = $this->prices->forStock($heldTicker); @endphp
                         <tr wire:key="stock-price-{{ $heldTicker }}">
-                            <td class="py-2 pe-4 font-medium">{{ $heldTicker }}</td>
-                            <td class="py-2 pe-4 text-right tabular-nums">{{ $latest?->price->format() ?? '—' }}</td>
-                            <td class="py-2 pe-4">{{ $latest?->as_of->timezone($this->prices->displayTimezone())->format('M j, Y g:i A') ?? '—' }}</td>
-                            <td class="py-2 pe-4">@include('partials.price-status', ['latest' => $latest])</td>
-                            <td class="py-2 text-right"><button type="button" wire:click="enterStockPrice('{{ $heldTicker }}')" class="underline underline-offset-4">Enter price</button></td>
+                            <td class="font-medium">{{ $heldTicker }}</td>
+                            <td class="num">{{ $latest?->price->format() ?? '—' }}</td>
+                            <td>{{ $latest?->as_of->timezone($this->prices->displayTimezone())->format('M j, Y g:i A') ?? '—' }}</td>
+                            <td>@include('partials.price-status', ['latest' => $latest])</td>
+                            <td class="py-2 text-right"><button type="button" wire:click="enterStockPrice('{{ $heldTicker }}')" class="link">Enter price</button></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -204,29 +204,29 @@ new #[Title('Prices')] class extends ReportPage
     </section>
 
     <section class="card flex flex-col gap-3">
-        <h2 class="text-lg font-semibold">Open option contracts</h2>
+        <h2 class="section-title">Open option contracts</h2>
         @if ($this->openContracts->isEmpty())
             <p class="text-sm text-zinc-500">No open options.</p>
         @else
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="py-2 pe-4 font-medium">Contract</th>
-                        <th class="py-2 pe-4 text-right font-medium">Latest price</th>
-                        <th class="py-2 pe-4 font-medium">As of</th>
-                        <th class="py-2 pe-4 font-medium">Status</th>
+                        <th>Contract</th>
+                        <th class="text-right">Latest price</th>
+                        <th>As of</th>
+                        <th>Status</th>
                         <th class="py-2"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @foreach ($this->openContracts as $contract)
                         @php $latest = $this->prices->forOption($contract); @endphp
                         <tr wire:key="option-price-{{ $contract->id }}">
-                            <td class="py-2 pe-4 font-medium">{{ $contract->description() }}</td>
-                            <td class="py-2 pe-4 text-right tabular-nums">{{ $latest?->price->format() ?? '—' }}</td>
-                            <td class="py-2 pe-4">{{ $latest?->as_of->timezone($this->prices->displayTimezone())->format('M j, Y g:i A') ?? '—' }}</td>
-                            <td class="py-2 pe-4">@include('partials.price-status', ['latest' => $latest])</td>
-                            <td class="py-2 text-right"><button type="button" wire:click="enterOptionPrice({{ $contract->id }})" class="underline underline-offset-4">Enter price</button></td>
+                            <td class="font-medium">{{ $contract->description() }}</td>
+                            <td class="num">{{ $latest?->price->format() ?? '—' }}</td>
+                            <td>{{ $latest?->as_of->timezone($this->prices->displayTimezone())->format('M j, Y g:i A') ?? '—' }}</td>
+                            <td>@include('partials.price-status', ['latest' => $latest])</td>
+                            <td class="py-2 text-right"><button type="button" wire:click="enterOptionPrice({{ $contract->id }})" class="link">Enter price</button></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -235,27 +235,27 @@ new #[Title('Prices')] class extends ReportPage
     </section>
 
     <section class="card flex flex-col gap-3">
-        <h2 class="text-lg font-semibold">Price history</h2>
+        <h2 class="section-title">Price history</h2>
         @if ($this->recentPrices->isEmpty())
             <p class="text-sm text-zinc-500">No prices entered yet.</p>
         @else
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="py-2 pe-4 font-medium">As of</th>
-                        <th class="py-2 pe-4 font-medium">For</th>
-                        <th class="py-2 pe-4 text-right font-medium">Price</th>
+                        <th>As of</th>
+                        <th>For</th>
+                        <th class="text-right">Price</th>
                         <th class="py-2"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @foreach ($this->recentPrices as $entry)
                         <tr wire:key="price-{{ $entry->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $entry->isVoided()])>
-                            <td class="py-2 pe-4">{{ $entry->as_of->timezone($this->prices->displayTimezone())->format('M j, Y g:i A') }}</td>
-                            <td class="py-2 pe-4">{{ $entry->description() }}</td>
-                            <td class="py-2 pe-4 text-right tabular-nums">{{ $entry->price->format() }}</td>
+                            <td>{{ $entry->as_of->timezone($this->prices->displayTimezone())->format('M j, Y g:i A') }}</td>
+                            <td>{{ $entry->description() }}</td>
+                            <td class="num">{{ $entry->price->format() }}</td>
                             <td class="py-2 text-right">
-                                <a href="{{ route('prices.edit', $entry) }}" class="underline underline-offset-4" wire:navigate>{{ $entry->isVoided() ? 'Voided' : 'Void' }}</a>
+                                <a href="{{ route('prices.edit', $entry) }}" class="link" wire:navigate>{{ $entry->isVoided() ? 'Voided' : 'Void' }}</a>
                             </td>
                         </tr>
                     @endforeach

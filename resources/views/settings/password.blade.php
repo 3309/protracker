@@ -1,8 +1,8 @@
 <x-layouts::app title="Change password">
-    <h1 class="text-2xl font-semibold">Change password</h1>
+    <h1 class="page-title">Change password</h1>
 
     @if (session('status') === 'password-updated')
-        <div class="status-message">Your password has been changed.</div>
+        <x-alert level="success">Your password has been changed.</x-alert>
     @endif
 
     <form method="POST" action="{{ route('user-password.update') }}" class="card flex max-w-md flex-col gap-4">

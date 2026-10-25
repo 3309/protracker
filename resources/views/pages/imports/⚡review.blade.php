@@ -124,7 +124,7 @@ new #[Title('Import review queue')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">Import review queue</h1>
+            <h1 class="page-title">Import review queue</h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">
                 Rows that were not imported, with the reason. Correct a row and check it again, then import it, or skip it with a
                 reason. Rows that were already imported can never be imported twice.
@@ -134,11 +134,11 @@ new #[Title('Import review queue')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     @if ($this->rows->isEmpty())
-        <div class="card">Nothing is waiting for review.</div>
+        <x-empty-state>Nothing is waiting for review.</x-empty-state>
     @else
         <div class="flex flex-col gap-4">
             @foreach ($this->rows as $row)
@@ -194,7 +194,7 @@ new #[Title('Import review queue')] class extends Component
                             <p class="form-help">Dates as YYYY-MM-DD. Quantity is shares for stock and contracts for options. A blank fee uses the account default.</p>
 
                             <div class="flex flex-wrap items-end gap-3">
-                                <button type="submit" class="btn-primary">Save and check again</button>
+                                <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save and check again</button>
                                 <button type="button" wire:click="cancel" class="btn-secondary">Cancel</button>
                                 <div class="grow"></div>
                                 <div>

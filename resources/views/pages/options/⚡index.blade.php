@@ -164,14 +164,14 @@ new #[Title('Options')] class extends ReportPage
 ?>
 
 <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between gap-4">
-        <h1 class="text-2xl font-semibold">Options</h1>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <h1 class="page-title">Options</h1>
         <div class="flex flex-wrap gap-3">
-            <button type="button" wire:click="export" class="btn-secondary">Download positions CSV</button>
-            <button type="button" wire:click="exportEvents" class="btn-secondary">Download events CSV</button>
+            <button type="button" wire:click="export" class="btn-secondary"><x-icon name="download" class="size-4" />Positions CSV</button>
+            <button type="button" wire:click="exportEvents" class="btn-secondary"><x-icon name="download" class="size-4" />Events CSV</button>
             <a href="{{ route('options.create') }}" class="btn-primary" wire:navigate>Sell to open</a>
             <details class="relative">
-                <summary class="btn-primary cursor-pointer list-none">Buy option</summary>
+                <summary class="btn-primary list-none">Buy option ▾</summary>
                 <div class="absolute right-0 z-10 mt-2 flex w-40 flex-col rounded-md border border-zinc-200 bg-white py-1 text-sm shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
                     <a href="{{ route('options.buy', ['type' => 'call']) }}" class="px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800" wire:navigate>Buy call</a>
                     <a href="{{ route('options.buy', ['type' => 'put']) }}" class="px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800" wire:navigate>Buy put</a>
@@ -184,7 +184,7 @@ new #[Title('Options')] class extends ReportPage
         <div class="grow">
             @include('partials.report-filters', ['showPeriod' => false])
         </div>
-        <div class="card">
+        <div class="card p-4">
             <label for="status" class="form-label">Show</label>
             <select id="status" wire:model.live="status" class="form-input">
                 <option value="open">Open</option>
@@ -192,7 +192,7 @@ new #[Title('Options')] class extends ReportPage
                 <option value="all">All, including voided</option>
             </select>
         </div>
-        <div class="card flex flex-wrap gap-4">
+        <div class="card flex flex-wrap gap-4 p-4">
             <div>
                 <label for="filter_type" class="form-label">Call or put</label>
                 <select id="filter_type" wire:model.live="type" class="form-input">
@@ -222,56 +222,81 @@ new #[Title('Options')] class extends ReportPage
     </div>
 
     @if ($this->pastExpirationCount > 0)
-        <div class="card border-amber-300 text-sm text-amber-800 dark:border-amber-700 dark:text-amber-300">
+        <x-alert level="critical" title="Past expiration, still open">
             {{ $this->pastExpirationCount }} {{ Str::plural('option', $this->pastExpirationCount) }} still open after the expiration date.
             Open each one and record whether it expired worthless, was assigned or (for a bought option) was sold. Nothing is closed automatically.
-        </div>
+        </x-alert>
     @endif
 
     @if ($this->positions->isEmpty())
-        <div class="card">No option positions to show.</div>
+        <x-empty-state icon="options">
+            No option positions to show.
+            <x-slot:action>
+                <a href="{{ route('options.create') }}" class="link" wire:navigate>Sell an option</a> or <a href="{{ route('options.buy') }}" class="link" wire:navigate>buy one</a>.
+            </x-slot:action>
+        </x-empty-state>
     @else
         <div class="card overflow-x-auto p-0">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3 font-medium">Option</th>
-                        <th class="px-4 py-3 font-medium">Side</th>
-                        <th class="px-4 py-3 font-medium">Account</th>
-                        <th class="px-4 py-3 font-medium">Opened</th>
-                        <th class="px-4 py-3 text-right font-medium">Open / total</th>
-                        <th class="px-4 py-3 text-right font-medium">Premium received / paid</th>
-                        <th class="px-4 py-3 text-right font-medium">Opening fees</th>
-                        <th class="px-4 py-3 text-right font-medium">Days to expiry</th>
-                        <th class="px-4 py-3"></th>
+                        <th>Option</th>
+                        <th>Side</th>
+                        <th>Account</th>
+                        <th>Opened</th>
+                        <th class="text-right">Open / total</th>
+                        <th class="text-right">Premium received / paid</th>
+                        <th class="text-right">Opening fees</th>
+                        <th class="text-right">Realized P/L <x-tip text="Net profit or loss of the contracts already closed, after fees." /></th>
+                        <th class="text-right">Status / days to expiry</th>
+                        <th></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @foreach ($this->positions as $position)
-                        <tr wire:key="option-{{ $position->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $position->isVoided()])>
-                            <td class="px-4 py-3 font-medium">{{ $position->description() }}</td>
-                            <td class="px-4 py-3">{{ $position->isLong() ? 'Long '.strtolower($position->option_type->label()) : 'Short '.strtolower($position->option_type->label()) }}</td>
-                            <td class="px-4 py-3">{{ $position->account->displayName() }}</td>
-                            <td class="px-4 py-3">
-                                {{ $position->opened_on->format('M j, Y') }}
-                                <span class="text-xs text-zinc-500">{{ $position->origin->label() }}</span>
+                        <tr wire:key="option-{{ $position->id }}" @class([
+                            'text-zinc-400 line-through dark:text-zinc-500' => $position->isVoided(),
+                            'text-zinc-600 dark:text-zinc-400' => ! $position->isVoided() && ! $position->isOpen(),
+                        ])>
+                            <td class="font-medium">{{ $position->description() }}</td>
+                            <td>
+                                <x-badge :tone="$position->isLong() ? 'blue' : 'gray'">{{ $position->isLong() ? 'Long '.strtolower($position->option_type->label()) : 'Short '.strtolower($position->option_type->label()) }}</x-badge>
                             </td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $position->openContracts() }} / {{ $position->contracts }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $position->premiumReceived()->format() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $position->opening_fees->format() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                @if ($position->isVoided())
-                                    Voided
-                                @elseif ($this->isPastExpiration($position))
-                                    <span class="font-medium text-amber-700 dark:text-amber-400">Past expiration — record {{ $position->isLong() ? 'the expiry' : 'expiry or assignment' }}</span>
-                                @elseif ($position->isOpen())
-                                    {{ $this->daysToExpiry($position) }}
+                            <td>{{ $position->account->displayName() }}</td>
+                            <td>
+                                {{ $position->opened_on->format('M j, Y') }}
+                                <span class="block text-xs text-zinc-500">{{ $position->origin->label() }}</span>
+                            </td>
+                            <td class="num">{{ $position->openContracts() }} / {{ $position->contracts }}</td>
+                            <td class="num">{{ $position->premiumReceived()->format() }}</td>
+                            <td class="num">{{ $position->opening_fees->format() }}</td>
+                            <td class="num">
+                                @if ($position->isVoided() || $position->openContracts() === $position->contracts)
+                                    <span class="text-zinc-400">—</span>
                                 @else
-                                    Closed
+                                    <x-money :amount="$position->realizedNetProfit()" />
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-right">
-                                <a href="{{ route('options.show', $position) }}" class="underline underline-offset-4" wire:navigate>View</a>
+                            <td class="num">
+                                @if ($position->isVoided())
+                                    <x-badge>Voided</x-badge>
+                                @elseif ($this->isPastExpiration($position))
+                                    <x-badge tone="red"><x-icon name="warning" class="size-3.5" />Past expiration — record {{ $position->isLong() ? 'the expiry' : 'expiry or assignment' }}</x-badge>
+                                @elseif ($position->isOpen())
+                                    @php($days = $this->daysToExpiry($position))
+                                    @if ($days === 0)
+                                        <x-badge tone="red">Expires today</x-badge>
+                                    @elseif ($days <= App\Support\DataQualityAlerts::EXPIRING_SOON_DAYS)
+                                        <x-badge tone="amber"><x-icon name="clock" class="size-3.5" />{{ $days }} {{ Str::plural('day', $days) }}</x-badge>
+                                    @else
+                                        <x-badge tone="green">Open</x-badge> <span class="ms-1">{{ $days }} days</span>
+                                    @endif
+                                @else
+                                    <x-badge>Closed</x-badge>
+                                @endif
+                            </td>
+                            <td class="text-right">
+                                <a href="{{ route('options.show', $position) }}" class="link" wire:navigate>View</a>
                             </td>
                         </tr>
                     @endforeach

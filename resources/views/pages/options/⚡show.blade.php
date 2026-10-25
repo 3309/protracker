@@ -178,19 +178,22 @@ new #[Title('Option position')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">
+            <h1 class="page-title">
                 {{ $optionPosition->description() }}
                 @if ($optionPosition->isVoided())
-                    <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Voided</span>
+                    <x-badge tone="gray" class="ms-2 align-middle">Voided</x-badge>
                 @elseif (! $optionPosition->isOpen())
-                    <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Closed</span>
+                    <x-badge tone="gray" class="ms-2 align-middle">Closed</x-badge>
+                @else
+                    <x-badge tone="green" class="ms-2 align-middle">Open</x-badge>
                 @endif
+                <x-badge :tone="$optionPosition->isLong() ? 'blue' : 'gray'" class="ms-1 align-middle">{{ $optionPosition->isLong() ? 'Bought (long)' : 'Sold (short)' }}</x-badge>
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $optionPosition->account->displayName() }} · {{ $optionPosition->origin->label() }} · {{ $optionPosition->side->label() }}</p>
             @if ($optionPosition->rolledFromEvent)
                 <p class="text-sm text-zinc-600 dark:text-zinc-400">
                     Opened by rolling
-                    <a href="{{ route('options.show', $optionPosition->rolledFromEvent->option_position_id) }}" class="underline underline-offset-4" wire:navigate>{{ $optionPosition->rolledFromEvent->position->description() }}</a>
+                    <a href="{{ route('options.show', $optionPosition->rolledFromEvent->option_position_id) }}" class="link" wire:navigate>{{ $optionPosition->rolledFromEvent->position->description() }}</a>
                     · roll net credit {{ $optionPosition->rollNetCredit()?->format() }}
                 </p>
             @endif
@@ -205,7 +208,7 @@ new #[Title('Option position')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     <section class="card">
@@ -250,7 +253,7 @@ new #[Title('Option position')] class extends Component
             @endif
             <div>
                 <dt class="text-zinc-500 dark:text-zinc-400">Realized net P/L so far</dt>
-                <dd class="tabular-nums">{{ $this->realizedNetProfit->format() }}</dd>
+                <dd class="text-base font-semibold"><x-money :amount="$this->realizedNetProfit" /></dd>
             </div>
         </dl>
         <p class="form-help mt-4">
@@ -264,28 +267,28 @@ new #[Title('Option position')] class extends Component
 
     @if ($this->events->isNotEmpty())
         <section class="card flex flex-col gap-4">
-            <h2 class="text-lg font-semibold">Events</h2>
+            <h2 class="section-title">Events</h2>
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="py-2 pe-4 font-medium">Date</th>
-                            <th class="py-2 pe-4 font-medium">Event</th>
-                            <th class="py-2 pe-4 text-right font-medium">Contracts</th>
-                            <th class="py-2 pe-4 text-right font-medium">Price</th>
-                            <th class="py-2 pe-4 text-right font-medium">{{ $optionPosition->isLong() ? 'Premium paid' : 'Premium kept' }}</th>
-                            <th class="py-2 pe-4 text-right font-medium">{{ $optionPosition->isLong() ? 'Sale proceeds' : 'Closing cost' }}</th>
-                            <th class="py-2 pe-4 text-right font-medium">Gross P/L</th>
-                            <th class="py-2 pe-4 text-right font-medium">Fees</th>
-                            <th class="py-2 pe-4 text-right font-medium">Net P/L</th>
+                            <th>Date</th>
+                            <th>Event</th>
+                            <th class="text-right">Contracts</th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">{{ $optionPosition->isLong() ? 'Premium paid' : 'Premium kept' }}</th>
+                            <th class="text-right">{{ $optionPosition->isLong() ? 'Sale proceeds' : 'Closing cost' }}</th>
+                            <th class="text-right">Gross P/L</th>
+                            <th class="text-right">Fees</th>
+                            <th class="text-right">Net P/L</th>
                             <th class="py-2"></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->events as $event)
                             <tr wire:key="event-{{ $event->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $event->isVoided()])>
-                                <td class="py-2 pe-4">{{ $event->event_date->format('M j, Y') }}</td>
-                                <td class="py-2 pe-4">
+                                <td>{{ $event->event_date->format('M j, Y') }}</td>
+                                <td>
                                     {{ $event->event_type->label() }}
                                     @if ($event->stockTrade)
                                         <a href="{{ route('stock-trades.edit', $event->stockTrade) }}" class="block text-xs underline underline-offset-4" wire:navigate>
@@ -298,18 +301,30 @@ new #[Title('Option position')] class extends Component
                                         </a>
                                     @endif
                                 </td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $event->contracts }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $event->price_per_share?->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $event->allocated_premium->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $event->closingCost()->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $event->grossProfit()->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $event->totalFees()->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $event->netProfit()->format() }}</td>
-                                <td class="py-2 text-right">
+                                <td class="num">{{ $event->contracts }}</td>
+                                <td class="num">{{ $event->price_per_share?->format() }}</td>
+                                <td class="num">{{ $event->allocated_premium->format() }}</td>
+                                <td class="num">{{ $event->closingCost()->format() }}</td>
+                                <td class="num">
                                     @if ($event->isVoided())
-                                        <span>Voided</span>
+                                        {{ $event->grossProfit()->format() }}
+                                    @else
+                                        <x-money :amount="$event->grossProfit()" />
                                     @endif
-                                    <a href="{{ route('options.events.edit', $event) }}" class="underline underline-offset-4" wire:navigate>{{ $event->isVoided() ? 'View' : 'Edit' }}</a>
+                                </td>
+                                <td class="num">{{ $event->totalFees()->format() }}</td>
+                                <td class="num font-semibold">
+                                    @if ($event->isVoided())
+                                        {{ $event->netProfit()->format() }}
+                                    @else
+                                        <x-money :amount="$event->netProfit()" />
+                                    @endif
+                                </td>
+                                <td class="text-right whitespace-nowrap">
+                                    @if ($event->isVoided())
+                                        <x-badge>Voided</x-badge>
+                                    @endif
+                                    <a href="{{ route('options.events.edit', $event) }}" class="link" wire:navigate>{{ $event->isVoided() ? 'View' : 'Edit' }}</a>
                                 </td>
                             </tr>
                         @endforeach
@@ -325,6 +340,16 @@ new #[Title('Option position')] class extends Component
 
     @if (! $optionPosition->isVoided() && $optionPosition->isOpen())
         <section class="card flex flex-col gap-4">
+            <div>
+                <h2 class="section-title">Record what happened</h2>
+                <p class="form-help">
+                    @if ($optionPosition->isLong())
+                        You bought this option. Sell to close if you sold it, or mark it expired worthless on or after the expiration date.
+                    @else
+                        You sold this option. Buy to close if you bought it back, roll it into a new option, or record an expiry or assignment.
+                    @endif
+                </p>
+            </div>
             <div class="flex flex-wrap gap-2" role="tablist">
                 @foreach ($this->actions() as $key => $label)
                     <button
@@ -347,14 +372,14 @@ new #[Title('Option position')] class extends Component
                 <form wire:submit="recordRoll" class="flex flex-col gap-4">
                     @include('partials.roll-fields', ['optionPosition' => $optionPosition])
                     <div>
-                        <button type="submit" class="btn-primary">Record roll</button>
+                        <button type="submit" class="btn-primary" wire:loading.attr="disabled">Record roll</button>
                     </div>
                 </form>
             @else
                 <form wire:submit="recordLifecycleEvent" class="flex flex-col gap-4">
                     @include('partials.option-lifecycle-fields', ['optionPosition' => $optionPosition, 'prefix' => 'lifecycle', 'isAssignment' => $action === 'assigned'])
                     <div>
-                        <button type="submit" class="btn-primary">{{ $action === 'assigned' ? 'Record assignment' : 'Record expiry' }}</button>
+                        <button type="submit" class="btn-primary" wire:loading.attr="disabled">{{ $action === 'assigned' ? 'Record assignment' : 'Record expiry' }}</button>
                     </div>
                 </form>
             @endif

@@ -29,7 +29,7 @@ new #[Title('Add opening option')] class extends Component
 
 <div class="flex flex-col gap-6">
     <div>
-        <h1 class="text-2xl font-semibold">Add opening option</h1>
+        <h1 class="page-title">Add opening option</h1>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $account->displayName() }} · Opening balance · Short options only</p>
     </div>
 
@@ -37,7 +37,7 @@ new #[Title('Add opening option')] class extends Component
         @include('partials.option-position-fields', ['feePerContract' => $account->option_fee_per_contract])
 
         <div class="flex gap-3">
-            <button type="submit" class="btn-primary">Add option</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Add option</button>
             <a href="{{ route('opening-balances.show', $account) }}" class="btn-secondary" wire:navigate>Cancel</a>
         </div>
     </form>

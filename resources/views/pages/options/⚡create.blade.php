@@ -40,7 +40,7 @@ new #[Title('Sell to open')] class extends Component
 
 <div class="flex flex-col gap-6">
     <div>
-        <h1 class="text-2xl font-semibold">Sell to open</h1>
+        <h1 class="page-title">Sell to open</h1>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">
             Record a put or call you sold. The premium counts as profit only when the contracts close, expire or are assigned.
         </p>
@@ -50,7 +50,7 @@ new #[Title('Sell to open')] class extends Component
         @include('partials.sell-to-open-fields', ['accounts' => $this->accounts])
 
         <div class="flex gap-3">
-            <button type="submit" class="btn-primary">Record sale</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Record sale</button>
             <a href="{{ route('options.index') }}" class="btn-secondary" wire:navigate>Cancel</a>
         </div>
     </form>

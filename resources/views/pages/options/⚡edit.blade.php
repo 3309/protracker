@@ -88,10 +88,10 @@ new #[Title('Correct option trade')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">
+            <h1 class="page-title">
                 {{ $optionPosition->description() }}
                 @if ($optionPosition->isVoided())
-                    <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Voided</span>
+                    <x-badge tone="gray" class="ms-2 align-middle">Voided</x-badge>
                 @endif
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $optionPosition->account->displayName() }} · {{ $optionPosition->origin->label() }}</p>
@@ -100,11 +100,11 @@ new #[Title('Correct option trade')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     @if ($optionPosition->isVoided())
-        <div class="card text-sm">This sale was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</div>
+        <x-alert level="info" title="Voided">This sale was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</x-alert>
     @else
         <form wire:submit="save" wire:confirm="Save this correction? Realized profit of any closes of this position will be recalculated." class="card flex flex-col gap-6">
             @include('partials.sell-to-open-fields', ['optionPosition' => $optionPosition])
@@ -117,7 +117,7 @@ new #[Title('Correct option trade')] class extends Component
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <button type="submit" class="btn-primary">Save changes</button>
+                <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save changes</button>
                 <button type="button" wire:click="void" wire:confirm="Void this sale? It stays in the history but no longer counts." class="btn-danger">Void sale</button>
             </div>
         </form>

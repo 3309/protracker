@@ -83,15 +83,15 @@ new #[Title('Settings')] class extends Component
 ?>
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-semibold">Settings</h1>
+    <h1 class="page-title">Settings</h1>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     <form wire:submit="save" class="card flex max-w-xl flex-col gap-4">
         <div>
-            <label for="reporting_start_date" class="form-label">Reporting start date</label>
+            <label for="reporting_start_date" class="form-label required">Reporting start date</label>
             <input id="reporting_start_date" type="date" wire:model="reporting_start_date" class="form-input" @disabled($this->reportingStartDateIsLocked)>
             @if ($this->reportingStartDateIsLocked)
                 <p class="form-help">Locked because opening balances or trades have been entered. Changing it would make them wrong.</p>
@@ -102,14 +102,14 @@ new #[Title('Settings')] class extends Component
         </div>
 
         <div>
-            <label for="stale_price_threshold_days" class="form-label">Warn about stale prices after (days)</label>
+            <label for="stale_price_threshold_days" class="form-label required">Warn about stale prices after (days)</label>
             <input id="stale_price_threshold_days" type="number" min="1" max="90" wire:model="stale_price_threshold_days" class="form-input">
             <p class="form-help">A manually entered price older than this is flagged as stale.</p>
             @error('stale_price_threshold_days') <p class="form-error">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="display_timezone" class="form-label">Display time zone</label>
+            <label for="display_timezone" class="form-label required">Display time zone</label>
             <select id="display_timezone" wire:model="display_timezone" class="form-input">
                 @foreach ($this::TIMEZONES as $timezone => $label)
                     <option value="{{ $timezone }}">{{ $label }}</option>
@@ -125,7 +125,7 @@ new #[Title('Settings')] class extends Component
         </div>
 
         <div>
-            <button type="submit" class="btn-primary">Save settings</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save settings</button>
         </div>
     </form>
 </div>

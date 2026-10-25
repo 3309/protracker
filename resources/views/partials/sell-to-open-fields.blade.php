@@ -12,7 +12,7 @@
         </div>
     @else
         <div class="sm:col-span-2">
-            <label for="account_id" class="form-label">Account</label>
+            <label for="account_id" class="form-label required">Account</label>
             <select id="account_id" {{ $summaryModel }}="form.account_id" class="form-input">
                 <option value="">Choose…</option>
                 @foreach ($accounts as $account)
@@ -23,14 +23,16 @@
         </div>
     @endisset
 
+    <h3 class="form-section-title border-t border-zinc-200 pt-4 sm:col-span-2 dark:border-zinc-800">The option</h3>
+
     <div>
-        <label for="underlying" class="form-label">Ticker</label>
+        <label for="underlying" class="form-label required">Ticker</label>
         <input id="underlying" type="text" wire:model="form.underlying" class="form-input uppercase" placeholder="e.g. AAPL">
         @error('form.underlying') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="option_type" class="form-label">Put or call ({{ $isPurchase ? 'bought' : 'sold' }})</label>
+        <label for="option_type" class="form-label required">Put or call ({{ $isPurchase ? 'bought' : 'sold' }})</label>
         <select id="option_type" wire:model="form.option_type" class="form-input">
             <option value="">Choose…</option>
             @foreach (App\Enums\OptionType::cases() as $type)
@@ -41,19 +43,21 @@
     </div>
 
     <div>
-        <label for="strike" class="form-label">Strike price</label>
+        <label for="strike" class="form-label required">Strike price</label>
         <input id="strike" type="text" inputmode="decimal" wire:model="form.strike" class="form-input" placeholder="e.g. 50.00">
         @error('form.strike') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="expires_on" class="form-label">Expiration date</label>
+        <label for="expires_on" class="form-label required">Expiration date</label>
         <input id="expires_on" type="date" wire:model="form.expires_on" class="form-input">
         @error('form.expires_on') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
+    <h3 class="form-section-title border-t border-zinc-200 pt-4 sm:col-span-2 dark:border-zinc-800">The trade</h3>
+
     <div>
-        <label for="opened_on" class="form-label">Trade date</label>
+        <label for="opened_on" class="form-label required">Trade date</label>
         <input id="opened_on" type="date" wire:model="form.opened_on" class="form-input">
         @error('form.opened_on') <p class="form-error">{{ $message }}</p> @enderror
     </div>
@@ -71,20 +75,20 @@
     </div>
 
     <div>
-        <label for="contracts" class="form-label">Contracts</label>
+        <label for="contracts" class="form-label required">Contracts</label>
         <input id="contracts" type="number" min="1" step="1" {{ $summaryModel }}="form.contracts" class="form-input" placeholder="e.g. 1">
         @error('form.contracts') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="premium_per_share" class="form-label">Premium per share</label>
+        <label for="premium_per_share" class="form-label required">Premium per share</label>
         <input id="premium_per_share" type="text" inputmode="decimal" {{ $summaryModel }}="form.premium_per_share" class="form-input" placeholder="e.g. 1.20">
         <p class="form-help">The price you {{ $isPurchase ? 'paid' : 'sold at' }}, e.g. 1.20 means $120 for one 100-share contract.</p>
         @error('form.premium_per_share') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="multiplier" class="form-label">Shares per contract</label>
+        <label for="multiplier" class="form-label required">Shares per contract</label>
         <input id="multiplier" type="number" min="1" step="1" {{ $summaryModel }}="form.multiplier" class="form-input">
         <p class="form-help">Normally 100. Change it only for an adjusted contract.</p>
         @error('form.multiplier') <p class="form-error">{{ $message }}</p> @enderror
@@ -102,4 +106,6 @@
         <input id="reference_note" type="text" wire:model="form.reference_note" class="form-input" placeholder="e.g. Order number">
         @error('form.reference_note') <p class="form-error">{{ $message }}</p> @enderror
     </div>
+
+    <p class="form-help sm:col-span-2"><span class="text-red-600 dark:text-red-400">*</span> Required</p>
 </div>

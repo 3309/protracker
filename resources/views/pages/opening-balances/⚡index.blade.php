@@ -28,7 +28,7 @@ new #[Title('Opening balances')] class extends Component
 ?>
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-semibold">Opening balances</h1>
+    <h1 class="page-title">Opening balances</h1>
 
     <div class="card flex flex-col gap-2 text-sm">
         <p>
@@ -43,32 +43,34 @@ new #[Title('Opening balances')] class extends Component
     </div>
 
     @if ($this->accounts->isEmpty())
-        <div class="card">
-            There are no active accounts yet. <a href="{{ route('accounts.create') }}" class="underline underline-offset-4" wire:navigate>Add an account</a> first.
-        </div>
+        <x-empty-state>
+            There are no active accounts yet. <a href="{{ route('accounts.create') }}" class="link" wire:navigate>Add an account</a> first.
+        </x-empty-state>
     @else
         <div class="card overflow-x-auto p-0">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3 font-medium">Account</th>
-                        <th class="px-4 py-3 font-medium">Status</th>
-                        <th class="px-4 py-3 text-right font-medium">Starting cash</th>
-                        <th class="px-4 py-3 text-right font-medium">Stock lots</th>
-                        <th class="px-4 py-3 text-right font-medium">Open options</th>
-                        <th class="px-4 py-3"></th>
+                        <th>Account</th>
+                        <th>Status</th>
+                        <th class="text-right">Starting cash</th>
+                        <th class="text-right">Stock lots</th>
+                        <th class="text-right">Open options</th>
+                        <th></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @foreach ($this->accounts as $account)
                         <tr wire:key="opening-{{ $account->id }}">
-                            <td class="px-4 py-3 font-medium">{{ $account->displayName() }}</td>
-                            <td class="px-4 py-3">{{ $account->openingStatus()->label() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $account->opening?->cash_balance?->format() ?? 'Not entered' }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $account->opening_stock_lots_count }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $account->opening_option_positions_count }}</td>
-                            <td class="px-4 py-3 text-right">
-                                <a href="{{ route('opening-balances.show', $account) }}" class="underline underline-offset-4" wire:navigate>Open</a>
+                            <td class="font-medium">{{ $account->displayName() }}</td>
+                            <td>
+                                <x-badge :tone="match ($account->openingStatus()) { App\Enums\OpeningStatus::Complete => 'green', App\Enums\OpeningStatus::InProgress => 'amber', default => 'gray' }">{{ $account->openingStatus()->label() }}</x-badge>
+                            </td>
+                            <td class="num">{{ $account->opening?->cash_balance?->format() ?? 'Not entered' }}</td>
+                            <td class="num">{{ $account->opening_stock_lots_count }}</td>
+                            <td class="num">{{ $account->opening_option_positions_count }}</td>
+                            <td class="text-right">
+                                <a href="{{ route('opening-balances.show', $account) }}" class="link" wire:navigate>Open</a>
                             </td>
                         </tr>
                     @endforeach

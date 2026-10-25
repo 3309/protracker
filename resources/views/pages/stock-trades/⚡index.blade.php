@@ -83,10 +83,10 @@ new #[Title('Stock trades')] class extends ReportPage
 ?>
 
 <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between gap-4">
-        <h1 class="text-2xl font-semibold">Stock trades</h1>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <h1 class="page-title">Stock trades</h1>
         <div class="flex flex-wrap gap-3">
-            <button type="button" wire:click="export" class="btn-secondary">Download CSV</button>
+            <button type="button" wire:click="export" class="btn-secondary"><x-icon name="download" class="size-4" />Download CSV</button>
             <a href="{{ route('stock-trades.create') }}" class="btn-primary" wire:navigate>Add trade</a>
         </div>
     </div>
@@ -94,46 +94,46 @@ new #[Title('Stock trades')] class extends ReportPage
     @include('partials.report-filters')
 
     @if ($this->trades->isEmpty())
-        <div class="card">No stock trades in this period.</div>
+        <x-empty-state>No stock trades in this period.</x-empty-state>
     @else
         <div class="card overflow-x-auto p-0">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3 font-medium">Trade date</th>
-                        <th class="px-4 py-3 font-medium">Account</th>
-                        <th class="px-4 py-3 font-medium">Side</th>
-                        <th class="px-4 py-3 font-medium">Ticker</th>
-                        <th class="px-4 py-3 text-right font-medium">Shares</th>
-                        <th class="px-4 py-3 text-right font-medium">Price</th>
-                        <th class="px-4 py-3 text-right font-medium">Amount</th>
-                        <th class="px-4 py-3 text-right font-medium">Fee</th>
-                        <th class="px-4 py-3 font-medium">Settles</th>
-                        <th class="px-4 py-3"></th>
+                        <th>Trade date</th>
+                        <th>Account</th>
+                        <th>Side</th>
+                        <th>Ticker</th>
+                        <th class="text-right">Shares</th>
+                        <th class="text-right">Price</th>
+                        <th class="text-right">Amount</th>
+                        <th class="text-right">Fee</th>
+                        <th>Settles</th>
+                        <th></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @foreach ($this->trades as $trade)
                         <tr wire:key="trade-{{ $trade->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $trade->isVoided()])>
-                            <td class="px-4 py-3">{{ $trade->trade_date->format('M j, Y') }}</td>
-                            <td class="px-4 py-3">{{ $trade->account->displayName() }}</td>
-                            <td class="px-4 py-3">
-                                {{ $trade->side->label() }}
+                            <td>{{ $trade->trade_date->format('M j, Y') }}</td>
+                            <td>{{ $trade->account->displayName() }}</td>
+                            <td>
+                                <x-badge :tone="$trade->isBuy() ? 'blue' : 'gray'">{{ $trade->side->label() }}</x-badge>
                                 @if ($trade->isFromAssignment())
-                                    <span class="text-xs text-zinc-500">Assignment</span>
+                                    <span class="block text-xs text-zinc-500">Assignment</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 font-medium">{{ $trade->ticker }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $trade->shares->format() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $trade->price_per_share->format() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $trade->grossAmount()->format() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $trade->fees->format() }}</td>
-                            <td class="px-4 py-3">{{ $trade->settlement_date->format('M j, Y') }}</td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="font-medium">{{ $trade->ticker }}</td>
+                            <td class="num">{{ $trade->shares->format() }}</td>
+                            <td class="num">{{ $trade->price_per_share->format() }}</td>
+                            <td class="num">{{ $trade->grossAmount()->format() }}</td>
+                            <td class="num">{{ $trade->fees->format() }}</td>
+                            <td>{{ $trade->settlement_date->format('M j, Y') }}</td>
+                            <td class="text-right">
                                 @if ($trade->isVoided())
-                                    <span>Voided</span>
+                                    <x-badge>Voided</x-badge>
                                 @endif
-                                <a href="{{ route('stock-trades.edit', $trade) }}" class="underline underline-offset-4" wire:navigate>{{ $trade->isVoided() ? 'View' : 'Edit' }}</a>
+                                <a href="{{ route('stock-trades.edit', $trade) }}" class="link" wire:navigate>{{ $trade->isVoided() ? 'View' : 'Edit' }}</a>
                             </td>
                         </tr>
                     @endforeach

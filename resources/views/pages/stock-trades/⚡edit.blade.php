@@ -111,10 +111,10 @@ new #[Title('Edit stock trade')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">
+            <h1 class="page-title">
                 {{ $stockTrade->side->label() }} {{ $stockTrade->shares->format() }} {{ $stockTrade->ticker }}
                 @if ($stockTrade->isVoided())
-                    <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Voided</span>
+                    <x-badge tone="gray" class="ms-2 align-middle">Voided</x-badge>
                 @endif
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">
@@ -126,16 +126,16 @@ new #[Title('Edit stock trade')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     @if ($stockTrade->isVoided())
-        <div class="card text-sm">This trade was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</div>
+        <x-alert level="info" title="Voided">This trade was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</x-alert>
     @elseif ($stockTrade->isFromAssignment())
-        <div class="card text-sm">
+        <x-alert level="info" title="Created by an assignment">
             This trade was created by an option assignment at the strike. To correct or void it, change
-            <a href="{{ route('options.events.edit', $stockTrade->option_event_id) }}" class="underline underline-offset-4" wire:navigate>the assignment</a>.
-        </div>
+            <a href="{{ route('options.events.edit', $stockTrade->option_event_id) }}" class="link" wire:navigate>the assignment</a>.
+        </x-alert>
     @else
         <form wire:submit="save" wire:confirm="Save this correction? Realized profit for {{ $stockTrade->ticker }} in this account will be recalculated." class="card flex flex-col gap-6">
             @include('partials.stock-trade-fields', ['stockTrade' => $stockTrade])
@@ -148,7 +148,7 @@ new #[Title('Edit stock trade')] class extends Component
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <button type="submit" class="btn-primary">Save changes</button>
+                <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save changes</button>
                 <button type="button" wire:click="void" wire:confirm="Void this trade? It stays in the history but no longer counts, and realized profit for {{ $stockTrade->ticker }} in this account will be recalculated." class="btn-danger">Void trade</button>
             </div>
         </form>
@@ -157,42 +157,42 @@ new #[Title('Edit stock trade')] class extends Component
     @if (! $stockTrade->isBuy() && $this->allocations->isNotEmpty())
         <section class="card flex flex-col gap-4">
             <div>
-                <h2 class="text-lg font-semibold">Shares used (oldest first)</h2>
+                <h2 class="section-title">Shares used (oldest first)</h2>
                 <p class="form-help">Fees are this sale's fee and the matching part of each lot's purchase fee.</p>
             </div>
 
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="py-2 pe-4 font-medium">Lot bought on</th>
-                            <th class="py-2 pe-4 text-right font-medium">Shares</th>
-                            <th class="py-2 pe-4 text-right font-medium">Cost / share</th>
-                            <th class="py-2 pe-4 text-right font-medium">Proceeds</th>
-                            <th class="py-2 pe-4 text-right font-medium">Cost</th>
-                            <th class="py-2 pe-4 text-right font-medium">Gross P/L</th>
-                            <th class="py-2 pe-4 text-right font-medium">Fees</th>
-                            <th class="py-2 text-right font-medium">Net P/L</th>
+                            <th>Lot bought on</th>
+                            <th class="text-right">Shares</th>
+                            <th class="text-right">Cost / share</th>
+                            <th class="text-right">Proceeds</th>
+                            <th class="text-right">Cost</th>
+                            <th class="text-right">Gross P/L</th>
+                            <th class="text-right">Fees</th>
+                            <th class="text-right">Net P/L</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->allocations as $piece)
                             <tr wire:key="piece-{{ $piece->id }}">
-                                <td class="py-2 pe-4">{{ $piece->lot->acquired_on->format('M j, Y') }} <span class="text-xs text-zinc-500">{{ $piece->lot->origin->label() }}</span></td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $piece->shares->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $piece->lot->cost_per_share->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $piece->proceeds->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $piece->cost->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $piece->grossProfit()->format() }}</td>
-                                <td class="py-2 pe-4 text-right tabular-nums">{{ $piece->fees()->format() }}</td>
-                                <td class="py-2 text-right tabular-nums">{{ $piece->netProfit()->format() }}</td>
+                                <td>{{ $piece->lot->acquired_on->format('M j, Y') }} <span class="text-xs text-zinc-500">{{ $piece->lot->origin->label() }}</span></td>
+                                <td class="num">{{ $piece->shares->format() }}</td>
+                                <td class="num">{{ $piece->lot->cost_per_share->format() }}</td>
+                                <td class="num">{{ $piece->proceeds->format() }}</td>
+                                <td class="num">{{ $piece->cost->format() }}</td>
+                                <td class="num"><x-money :amount="$piece->grossProfit()" /></td>
+                                <td class="num">{{ $piece->fees()->format() }}</td>
+                                <td class="num"><x-money :amount="$piece->netProfit()" /></td>
                             </tr>
                         @endforeach
                     </tbody>
-                    <tfoot class="border-t border-zinc-200 dark:border-zinc-700">
+                    <tfoot>
                         <tr>
-                            <td colspan="7" class="py-2 pe-4 font-medium">Net realized profit on this sale</td>
-                            <td class="py-2 text-right font-medium tabular-nums">{{ $this->totalNetProfit->format() }}</td>
+                            <td colspan="7" class="font-medium">Net realized profit on this sale</td>
+                            <td class="num"><x-money :amount="$this->totalNetProfit" /></td>
                         </tr>
                     </tfoot>
                 </table>

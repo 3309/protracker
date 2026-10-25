@@ -56,7 +56,7 @@ new #[Title('Roll chain')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">Roll chain: {{ $optionPosition->underlying }} {{ $optionPosition->option_type->label() }}</h1>
+            <h1 class="page-title">Roll chain: {{ $optionPosition->underlying }} {{ $optionPosition->option_type->label() }}</h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $optionPosition->account->displayName() }} · {{ $this->legs->count() }} legs</p>
         </div>
         <a href="{{ route('options.show', $optionPosition) }}" class="btn-secondary" wire:navigate>Back to position</a>
@@ -77,30 +77,30 @@ new #[Title('Roll chain')] class extends Component
     </div>
 
     <div class="card overflow-x-auto p-0">
-        <table class="w-full text-left text-sm">
-            <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <th class="px-4 py-3 font-medium">Leg</th>
-                    <th class="px-4 py-3 font-medium">Opened</th>
-                    <th class="px-4 py-3 text-right font-medium">Contracts</th>
-                    <th class="px-4 py-3 text-right font-medium">Premium received</th>
-                    <th class="px-4 py-3 text-right font-medium">Roll net credit</th>
-                    <th class="px-4 py-3 text-right font-medium">Leg realized P/L</th>
-                    <th class="px-4 py-3 font-medium">Status</th>
+                    <th>Leg</th>
+                    <th>Opened</th>
+                    <th class="text-right">Contracts</th>
+                    <th class="text-right">Premium received</th>
+                    <th class="text-right">Roll net credit</th>
+                    <th class="text-right">Leg realized P/L</th>
+                    <th>Status</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+            <tbody>
                 @foreach ($this->legs as $leg)
                     <tr wire:key="leg-{{ $leg->id }}">
-                        <td class="px-4 py-2 font-medium">
-                            <a href="{{ route('options.show', $leg) }}" class="underline underline-offset-4" wire:navigate>{{ $leg->description() }}</a>
+                        <td class="font-medium">
+                            <a href="{{ route('options.show', $leg) }}" class="link" wire:navigate>{{ $leg->description() }}</a>
                         </td>
-                        <td class="px-4 py-2">{{ $leg->opened_on->format('M j, Y') }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ $leg->contracts }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ $leg->premiumReceived()->format() }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ $leg->rollNetCredit()?->format() ?? '—' }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ $leg->realizedNetProfit()->format() }}</td>
-                        <td class="px-4 py-2">{{ $leg->isOpen() ? 'Open ('.$leg->openContracts().')' : 'Closed' }}</td>
+                        <td>{{ $leg->opened_on->format('M j, Y') }}</td>
+                        <td class="num">{{ $leg->contracts }}</td>
+                        <td class="num">{{ $leg->premiumReceived()->format() }}</td>
+                        <td class="num">{{ $leg->rollNetCredit()?->format() ?? '—' }}</td>
+                        <td class="num">{{ $leg->realizedNetProfit()->format() }}</td>
+                        <td>{{ $leg->isOpen() ? 'Open ('.$leg->openContracts().')' : 'Closed' }}</td>
                     </tr>
                 @endforeach
             </tbody>

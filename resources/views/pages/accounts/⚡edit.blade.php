@@ -84,17 +84,17 @@ new #[Title('Edit account')] class extends Component
 
 <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between gap-4">
-        <h1 class="text-2xl font-semibold">
+        <h1 class="page-title">
             {{ $account->displayName() }}
             @if ($account->isArchived())
-                <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Archived</span>
+                <x-badge tone="gray" class="ms-2 align-middle">Archived</x-badge>
             @endif
         </h1>
         <a href="{{ route('accounts.index') }}" class="btn-secondary" wire:navigate>Back to accounts</a>
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     <form wire:submit="save" class="card flex flex-col gap-6">
@@ -108,7 +108,7 @@ new #[Title('Edit account')] class extends Component
         </div>
 
         <div class="flex flex-wrap gap-3">
-            <button type="submit" class="btn-primary">Save changes</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save changes</button>
 
             @if ($account->isArchived())
                 <button type="button" wire:click="restore" class="btn-secondary">Restore account</button>

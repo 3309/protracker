@@ -56,7 +56,7 @@ new #[Title('Buy to open')] class extends Component
 
 <div class="flex flex-col gap-6">
     <div>
-        <h1 class="text-2xl font-semibold">
+        <h1 class="page-title">
             {{ match ($form->option_type) { 'call' => 'Buy call', 'put' => 'Buy put', default => 'Buy to open' } }}
         </h1>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">

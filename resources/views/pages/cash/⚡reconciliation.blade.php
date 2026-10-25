@@ -76,7 +76,7 @@ new #[Title('Cash reconciliation')] class extends ReportPage
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">Cash reconciliation</h1>
+            <h1 class="page-title">Cash reconciliation</h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">
                 Enter the cash balance your broker shows at the end of a day. The app compares it with the cash worked out from your
                 records. It never changes a transaction to make them match; a difference points to a missing or wrong entry.
@@ -86,17 +86,17 @@ new #[Title('Cash reconciliation')] class extends ReportPage
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     @include('partials.report-filters', ['showPeriod' => false, 'showTicker' => false])
 
     <form wire:submit="save" class="card flex flex-col gap-4">
-        <h2 class="text-lg font-semibold">Enter a broker balance</h2>
+        <h2 class="section-title">Enter a broker balance</h2>
 
         <div class="grid gap-4 sm:grid-cols-3">
             <div>
-                <label for="balance_account" class="form-label">Account</label>
+                <label for="balance_account" class="form-label required">Account</label>
                 <select id="balance_account" wire:model="form.account_id" class="form-input">
                     <option value="">Choose…</option>
                     @foreach ($this->filterAccounts as $filterAccount)
@@ -106,12 +106,12 @@ new #[Title('Cash reconciliation')] class extends ReportPage
                 @error('form.account_id') <p class="form-error">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label for="as_of_date" class="form-label">Date (end of day)</label>
+                <label for="as_of_date" class="form-label required">Date (end of day)</label>
                 <input id="as_of_date" type="date" wire:model="form.as_of_date" class="form-input">
                 @error('form.as_of_date') <p class="form-error">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label for="total_cash" class="form-label">Cash balance</label>
+                <label for="total_cash" class="form-label required">Cash balance</label>
                 <input id="total_cash" type="text" inputmode="decimal" wire:model="form.total_cash" class="form-input" placeholder="e.g. 2448.66">
                 @error('form.total_cash') <p class="form-error">{{ $message }}</p> @enderror
             </div>
@@ -128,52 +128,52 @@ new #[Title('Cash reconciliation')] class extends ReportPage
         </div>
 
         <div>
-            <button type="submit" class="btn-primary">Save and compare</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save and compare</button>
         </div>
     </form>
 
     @if ($this->comparisons->isEmpty())
-        <div class="card">No broker balances entered yet.</div>
+        <x-empty-state icon="cash">No broker balances entered yet. Enter the cash your broker shows above to compare it with your records.</x-empty-state>
     @else
         <div class="card overflow-x-auto p-0">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3 font-medium">Date</th>
-                        <th class="px-4 py-3 font-medium">Account</th>
-                        <th class="px-4 py-3 text-right font-medium">Broker cash</th>
-                        <th class="px-4 py-3 text-right font-medium">Calculated cash</th>
-                        <th class="px-4 py-3 text-right font-medium">Difference</th>
-                        <th class="px-4 py-3 text-right font-medium">Broker settled</th>
-                        <th class="px-4 py-3 text-right font-medium">Calculated settled</th>
-                        <th class="px-4 py-3 text-right font-medium">Difference</th>
-                        <th class="px-4 py-3 font-medium">Status</th>
-                        <th class="px-4 py-3"></th>
+                        <th>Date</th>
+                        <th>Account</th>
+                        <th class="text-right">Broker cash</th>
+                        <th class="text-right">Calculated cash</th>
+                        <th class="text-right">Difference</th>
+                        <th class="text-right">Broker settled</th>
+                        <th class="text-right">Calculated settled</th>
+                        <th class="text-right">Difference</th>
+                        <th>Status</th>
+                        <th></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @foreach ($this->comparisons as $comparison)
                         @php
                             $matches = $comparison['totalDifference']->isZero() && ($comparison['settledDifference'] === null || $comparison['settledDifference']->isZero());
                         @endphp
                         <tr wire:key="balance-{{ $comparison['balance']->id }}">
-                            <td class="px-4 py-2">{{ $comparison['balance']->as_of_date->format('M j, Y') }}</td>
-                            <td class="px-4 py-2">{{ $comparison['balance']->account->displayName() }}</td>
-                            <td class="px-4 py-2 text-right tabular-nums">{{ $comparison['balance']->total_cash->format() }}</td>
-                            <td class="px-4 py-2 text-right tabular-nums">{{ $comparison['total']->format() }}</td>
-                            <td class="px-4 py-2 text-right tabular-nums">{{ $comparison['totalDifference']->format() }}</td>
-                            <td class="px-4 py-2 text-right tabular-nums">{{ $comparison['balance']->settled_cash?->format() ?? '—' }}</td>
-                            <td class="px-4 py-2 text-right tabular-nums">{{ $comparison['settled']->format() }}</td>
-                            <td class="px-4 py-2 text-right tabular-nums">{{ $comparison['settledDifference']?->format() ?? '—' }}</td>
-                            <td class="px-4 py-2">
+                            <td>{{ $comparison['balance']->as_of_date->format('M j, Y') }}</td>
+                            <td>{{ $comparison['balance']->account->displayName() }}</td>
+                            <td class="num">{{ $comparison['balance']->total_cash->format() }}</td>
+                            <td class="num">{{ $comparison['total']->format() }}</td>
+                            <td class="num">{{ $comparison['totalDifference']->format() }}</td>
+                            <td class="num">{{ $comparison['balance']->settled_cash?->format() ?? '—' }}</td>
+                            <td class="num">{{ $comparison['settled']->format() }}</td>
+                            <td class="num">{{ $comparison['settledDifference']?->format() ?? '—' }}</td>
+                            <td>
                                 @if ($matches)
-                                    Matches
+                                    <x-badge tone="green"><x-icon name="success" class="size-3.5" />Matches</x-badge>
                                 @else
-                                    <span class="font-medium text-amber-700 dark:text-amber-400">Difference — look for a missing or wrong entry</span>
+                                    <x-badge tone="red"><x-icon name="warning" class="size-3.5" />Difference — look for a missing or wrong entry</x-badge>
                                 @endif
                             </td>
-                            <td class="px-4 py-2 text-right">
-                                <a href="{{ route('cash.broker-balances.edit', $comparison['balance']) }}" class="underline underline-offset-4" wire:navigate>Edit</a>
+                            <td class="text-right">
+                                <a href="{{ route('cash.broker-balances.edit', $comparison['balance']) }}" class="link" wire:navigate>Edit</a>
                             </td>
                         </tr>
                     @endforeach

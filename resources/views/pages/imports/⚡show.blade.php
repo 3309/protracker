@@ -79,7 +79,7 @@ new #[Title('Import preview')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">{{ $importBatch->original_filename }}</h1>
+            <h1 class="page-title">{{ $importBatch->original_filename }}</h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">
                 {{ $importBatch->account->displayName() }} · {{ $importBatch->format->label() }} · {{ $importBatch->row_count }} rows ·
                 {{ $importBatch->status->label() }}
@@ -93,7 +93,7 @@ new #[Title('Import preview')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     <div class="card flex flex-wrap gap-x-6 gap-y-2 text-sm">
@@ -117,29 +117,29 @@ new #[Title('Import preview')] class extends Component
             </div>
         </div>
     @else
-        <div class="card text-sm">
+        <x-alert level="success" title="Imported">
             This file has been imported. Rows that still need a correction are in the
-            <a href="{{ route('imports.review') }}" class="underline underline-offset-4" wire:navigate>review queue</a>.
-        </div>
+            <a href="{{ route('imports.review') }}" class="link" wire:navigate>review queue</a>.
+        </x-alert>
     @endunless
 
     <div class="card overflow-x-auto p-0">
-        <table class="w-full text-left text-sm">
-            <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <th class="px-4 py-3 font-medium">Line</th>
-                    <th class="px-4 py-3 font-medium">Date</th>
-                    <th class="px-4 py-3 font-medium">Row</th>
-                    <th class="px-4 py-3 font-medium">Status</th>
-                    <th class="px-4 py-3"></th>
+                    <th>Line</th>
+                    <th>Date</th>
+                    <th>Row</th>
+                    <th>Status</th>
+                    <th></th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+            <tbody>
                 @foreach ($this->rows as $row)
                     <tr wire:key="row-{{ $row->id }}">
-                        <td class="px-4 py-2 tabular-nums">{{ $row->row_number }}</td>
-                        <td class="px-4 py-2">{{ $row->value('date') }}</td>
-                        <td class="px-4 py-2">
+                        <td class="tabular-nums">{{ $row->row_number }}</td>
+                        <td>{{ $row->value('date') }}</td>
+                        <td>
                             @include('partials.import-row-summary', ['row' => $row])
                             @foreach ($row->messages as $message)
                                 <span class="block text-xs text-amber-700 dark:text-amber-400">{{ $message }}</span>
@@ -148,8 +148,15 @@ new #[Title('Import preview')] class extends Component
                                 <span class="block text-xs text-zinc-500">{{ $row->skip_reason }}</span>
                             @endif
                         </td>
-                        <td class="px-4 py-2">{{ $row->status->label() }}</td>
-                        <td class="px-4 py-2 text-right">
+                        <td>
+                            <x-badge :tone="match ($row->status) {
+                                ImportRowStatus::Imported, ImportRowStatus::Recognized => 'green',
+                                ImportRowStatus::Ambiguous, ImportRowStatus::PossibleDuplicate, ImportRowStatus::Incomplete => 'amber',
+                                ImportRowStatus::Invalid, ImportRowStatus::Unrecognized, ImportRowStatus::Failed => 'red',
+                                default => 'gray',
+                            }">{{ $row->status->label() }}</x-badge>
+                        </td>
+                        <td class="text-right">
                             @if (! $importBatch->isCommitted() && in_array($row->status, [ImportRowStatus::Ambiguous, ImportRowStatus::PossibleDuplicate], true))
                                 <label class="inline-flex items-center gap-2">
                                     <input type="checkbox" wire:click="toggleImportAnyway({{ $row->id }})" @checked($row->import_anyway)>

@@ -57,13 +57,13 @@ new #[Title('Dividends')] class extends ReportPage
 ?>
 
 <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">Dividends</h1>
+            <h1 class="page-title">Dividends</h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">By pay date. Only confirmed amounts count as income and cash. Dividends never change stock cost.</p>
         </div>
         <div class="flex flex-wrap gap-3">
-            <button type="button" wire:click="export" class="btn-secondary">Download CSV</button>
+            <button type="button" wire:click="export" class="btn-secondary"><x-icon name="download" class="size-4" />Download CSV</button>
             <a href="{{ route('dividends.create') }}" class="btn-primary" wire:navigate>Add dividend</a>
         </div>
     </div>
@@ -71,54 +71,60 @@ new #[Title('Dividends')] class extends ReportPage
     @include('partials.report-filters')
 
     @if ($this->dividends->isEmpty())
-        <div class="card">No dividends in this period.</div>
+        <x-empty-state>No dividends in this period.</x-empty-state>
     @else
         <div class="card overflow-x-auto p-0">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3 font-medium">Pay date</th>
-                        <th class="px-4 py-3 font-medium">Ex-date</th>
-                        <th class="px-4 py-3 font-medium">Account</th>
-                        <th class="px-4 py-3 font-medium">Ticker</th>
-                        <th class="px-4 py-3 text-right font-medium">Per share</th>
-                        <th class="px-4 py-3 text-right font-medium">Eligible shares</th>
-                        <th class="px-4 py-3 text-right font-medium">Expected</th>
-                        <th class="px-4 py-3 text-right font-medium">Actual</th>
-                        <th class="px-4 py-3 font-medium">Status</th>
-                        <th class="px-4 py-3"></th>
+                        <th>Pay date</th>
+                        <th>Ex-date</th>
+                        <th>Account</th>
+                        <th>Ticker</th>
+                        <th class="text-right">Per share</th>
+                        <th class="text-right">Eligible shares</th>
+                        <th class="text-right">Expected</th>
+                        <th class="text-right">Actual</th>
+                        <th>Status</th>
+                        <th></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     @foreach ($this->dividends as $dividend)
                         @php
                             $eligibleShares = $dividend->eligible_shares ?? $dividend->currentEligibleShares();
                             $expected = $dividend->expected_amount ?? $dividend->currentExpectedAmount();
                         @endphp
                         <tr wire:key="dividend-{{ $dividend->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $dividend->isVoided()])>
-                            <td class="px-4 py-3">{{ $dividend->pay_date->format('M j, Y') }}</td>
-                            <td class="px-4 py-3">{{ $dividend->ex_date->format('M j, Y') }}</td>
-                            <td class="px-4 py-3">{{ $dividend->account->displayName() }}</td>
-                            <td class="px-4 py-3 font-medium">{{ $dividend->ticker }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $dividend->amount_per_share->format() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $eligibleShares->format() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $expected->format() }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums">{{ $dividend->actual_amount?->format() ?? '—' }}</td>
-                            <td class="px-4 py-3">
+                            <td>{{ $dividend->pay_date->format('M j, Y') }}</td>
+                            <td>{{ $dividend->ex_date->format('M j, Y') }}</td>
+                            <td>{{ $dividend->account->displayName() }}</td>
+                            <td class="font-medium">{{ $dividend->ticker }}</td>
+                            <td class="num">{{ $dividend->amount_per_share->format() }}</td>
+                            <td class="num">{{ $eligibleShares->format() }}</td>
+                            <td class="num">{{ $expected->format() }}</td>
+                            <td class="num">
                                 @if ($dividend->isVoided())
-                                    Voided
-                                @elseif ($dividend->isConfirmed() && $dividend->hasDifference())
-                                    <span class="font-medium text-amber-700 dark:text-amber-400">Confirmed · differs by {{ $dividend->difference()?->format() }}</span>
-                                @elseif ($dividend->isConfirmed())
-                                    Confirmed
-                                @elseif ($eligibleShares->isZero())
-                                    <span class="font-medium text-amber-700 dark:text-amber-400">No shares on ex-date</span>
+                                    {{ $dividend->actual_amount?->format() ?? '—' }}
                                 @else
-                                    Expected · not confirmed
+                                    <x-money :amount="$dividend->actual_amount" />
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-right">
-                                <a href="{{ route('dividends.edit', $dividend) }}" class="underline underline-offset-4" wire:navigate>{{ $dividend->isVoided() ? 'View' : 'Open' }}</a>
+                            <td>
+                                @if ($dividend->isVoided())
+                                    <x-badge>Voided</x-badge>
+                                @elseif ($dividend->isConfirmed() && $dividend->hasDifference())
+                                    <x-badge tone="amber"><x-icon name="warning" class="size-3.5" />Confirmed · differs by {{ $dividend->difference()?->format() }}</x-badge>
+                                @elseif ($dividend->isConfirmed())
+                                    <x-badge tone="green"><x-icon name="success" class="size-3.5" />Confirmed</x-badge>
+                                @elseif ($eligibleShares->isZero())
+                                    <x-badge tone="amber"><x-icon name="warning" class="size-3.5" />No shares on ex-date</x-badge>
+                                @else
+                                    <x-badge tone="blue"><x-icon name="clock" class="size-3.5" />Expected · not confirmed</x-badge>
+                                @endif
+                            </td>
+                            <td class="text-right">
+                                <a href="{{ route('dividends.edit', $dividend) }}" class="link" wire:navigate>{{ $dividend->isVoided() ? 'View' : 'Open' }}</a>
                             </td>
                         </tr>
                     @endforeach

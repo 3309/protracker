@@ -51,10 +51,10 @@ new #[Title('Price')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">
+            <h1 class="page-title">
                 {{ $price->description() }}: {{ $price->price->format() }}
                 @if ($price->isVoided())
-                    <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Voided</span>
+                    <x-badge tone="gray" class="ms-2 align-middle">Voided</x-badge>
                 @endif
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">As of {{ $price->as_of->timezone($this->displayTimezone)->format('M j, Y g:i A T') }}{{ $price->reference_note ? ' · '.$price->reference_note : '' }}</p>
@@ -63,7 +63,7 @@ new #[Title('Price')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     @unless ($price->isVoided())

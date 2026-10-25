@@ -107,10 +107,10 @@ new #[Title('Correct option event')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">
+            <h1 class="page-title">
                 {{ $optionEvent->event_type->label() }}: {{ $optionEvent->position->description() }}
                 @if ($optionEvent->isVoided())
-                    <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Voided</span>
+                    <x-badge tone="gray" class="ms-2 align-middle">Voided</x-badge>
                 @endif
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">
@@ -119,7 +119,7 @@ new #[Title('Correct option event')] class extends Component
             @if ($optionEvent->stockTrade)
                 <p class="text-sm text-zinc-600 dark:text-zinc-400">
                     Linked stock trade:
-                    <a href="{{ route('stock-trades.edit', $optionEvent->stockTrade) }}" class="underline underline-offset-4" wire:navigate>
+                    <a href="{{ route('stock-trades.edit', $optionEvent->stockTrade) }}" class="link" wire:navigate>
                         {{ $optionEvent->stockTrade->side->label() }} {{ $optionEvent->stockTrade->shares->format() }} {{ $optionEvent->stockTrade->ticker }}
                         at {{ $optionEvent->stockTrade->price_per_share->format() }}
                     </a>
@@ -128,7 +128,7 @@ new #[Title('Correct option event')] class extends Component
             @if ($optionEvent->rolledInto)
                 <p class="text-sm text-zinc-600 dark:text-zinc-400">
                     Rolled into
-                    <a href="{{ route('options.show', $optionEvent->rolledInto) }}" class="underline underline-offset-4" wire:navigate>{{ $optionEvent->rolledInto->description() }}</a>.
+                    <a href="{{ route('options.show', $optionEvent->rolledInto) }}" class="link" wire:navigate>{{ $optionEvent->rolledInto->description() }}</a>.
                     To undo the roll, void that option.
                 </p>
             @endif
@@ -137,11 +137,11 @@ new #[Title('Correct option event')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     @if ($optionEvent->isVoided())
-        <div class="card text-sm">This event was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</div>
+        <x-alert level="info" title="Voided">This event was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</x-alert>
     @else
         <form wire:submit="save" wire:confirm="Save this correction? Realized profit for this position will be recalculated." class="card flex flex-col gap-6">
             @if ($optionEvent->event_type->closesAtPrice())
@@ -162,7 +162,7 @@ new #[Title('Correct option event')] class extends Component
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <button type="submit" class="btn-primary">Save changes</button>
+                <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save changes</button>
                 @unless ($optionEvent->rolledInto && ! $optionEvent->rolledInto->isVoided())
                     <button type="button" wire:click="void" wire:confirm="Void this event? The contracts become open again and realized profit is recalculated." class="btn-danger">Void event</button>
                 @endunless

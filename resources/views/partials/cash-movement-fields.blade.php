@@ -7,7 +7,7 @@
         </div>
     @else
         <div class="sm:col-span-2">
-            <label for="account_id" class="form-label">Account</label>
+            <label for="account_id" class="form-label required">Account</label>
             <select id="account_id" wire:model="form.account_id" class="form-input">
                 <option value="">Choose…</option>
                 @foreach ($accounts as $account)
@@ -19,7 +19,7 @@
     @endisset
 
     <div>
-        <label for="movement_type" class="form-label">Type</label>
+        <label for="movement_type" class="form-label required">Type</label>
         <select id="movement_type" wire:model="form.movement_type" class="form-input">
             <option value="">Choose…</option>
             @foreach (App\Enums\CashMovementType::cases() as $type)
@@ -31,13 +31,13 @@
     </div>
 
     <div>
-        <label for="amount" class="form-label">Amount</label>
+        <label for="amount" class="form-label required">Amount</label>
         <input id="amount" type="text" inputmode="decimal" wire:model="form.amount" class="form-input" placeholder="e.g. 1000.00">
         @error('form.amount') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="movement_date" class="form-label">Date</label>
+        <label for="movement_date" class="form-label required">Date</label>
         <input id="movement_date" type="date" wire:model="form.movement_date" class="form-input">
         @error('form.movement_date') <p class="form-error">{{ $message }}</p> @enderror
     </div>

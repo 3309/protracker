@@ -72,10 +72,10 @@ new #[Title('Edit broker balance')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">
+            <h1 class="page-title">
                 Broker balance · {{ $brokerBalance->as_of_date->format('M j, Y') }}
                 @if ($brokerBalance->isVoided())
-                    <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Voided</span>
+                    <x-badge tone="gray" class="ms-2 align-middle">Voided</x-badge>
                 @endif
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $brokerBalance->account->displayName() }}</p>
@@ -84,21 +84,21 @@ new #[Title('Edit broker balance')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     @if ($brokerBalance->isVoided())
-        <div class="card text-sm">This balance was voided and is no longer compared. Its history is shown below.</div>
+        <x-alert level="info" title="Voided">This balance was voided and is no longer compared. Its history is shown below.</x-alert>
     @else
         <form wire:submit="save" class="card flex flex-col gap-6">
             <div class="grid gap-4 sm:grid-cols-3">
                 <div>
-                    <label for="as_of_date" class="form-label">Date (end of day)</label>
+                    <label for="as_of_date" class="form-label required">Date (end of day)</label>
                     <input id="as_of_date" type="date" wire:model="form.as_of_date" class="form-input">
                     @error('form.as_of_date') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label for="total_cash" class="form-label">Cash balance</label>
+                    <label for="total_cash" class="form-label required">Cash balance</label>
                     <input id="total_cash" type="text" inputmode="decimal" wire:model="form.total_cash" class="form-input">
                     @error('form.total_cash') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
@@ -121,7 +121,7 @@ new #[Title('Edit broker balance')] class extends Component
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <button type="submit" class="btn-primary">Save changes</button>
+                <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save changes</button>
                 <button type="button" wire:click="void" wire:confirm="Void this broker balance?" class="btn-danger">Void balance</button>
             </div>
         </form>

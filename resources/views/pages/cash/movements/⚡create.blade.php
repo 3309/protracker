@@ -39,13 +39,13 @@ new #[Title('Add cash movement')] class extends Component
 ?>
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-semibold">Add deposit, withdrawal or other cash movement</h1>
+    <h1 class="page-title">Add deposit, withdrawal or other cash movement</h1>
 
     <form wire:submit="save" class="card flex flex-col gap-6">
         @include('partials.cash-movement-fields', ['accounts' => $this->accounts])
 
         <div class="flex gap-3">
-            <button type="submit" class="btn-primary">Record</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Record</button>
             <a href="{{ route('cash.index') }}" class="btn-secondary" wire:navigate>Cancel</a>
         </div>
     </form>

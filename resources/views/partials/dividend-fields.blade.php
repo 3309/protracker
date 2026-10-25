@@ -7,7 +7,7 @@
         </div>
     @else
         <div class="sm:col-span-2">
-            <label for="account_id" class="form-label">Account</label>
+            <label for="account_id" class="form-label required">Account</label>
             <select id="account_id" wire:model="form.account_id" class="form-input">
                 <option value="">Choose…</option>
                 @foreach ($accounts as $account)
@@ -19,13 +19,13 @@
     @endisset
 
     <div>
-        <label for="ticker" class="form-label">Ticker</label>
+        <label for="ticker" class="form-label required">Ticker</label>
         <input id="ticker" type="text" wire:model="form.ticker" class="form-input uppercase" placeholder="e.g. KO">
         @error('form.ticker') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="amount_per_share" class="form-label">Amount per share</label>
+        <label for="amount_per_share" class="form-label required">Amount per share</label>
         <input id="amount_per_share" type="text" inputmode="decimal" wire:model="form.amount_per_share" class="form-input" placeholder="e.g. 0.50">
         <p class="form-help">Up to six decimal places, e.g. 0.123456.</p>
         @error('form.amount_per_share') <p class="form-error">{{ $message }}</p> @enderror
@@ -39,7 +39,7 @@
     </div>
 
     <div>
-        <label for="pay_date" class="form-label">Pay date</label>
+        <label for="pay_date" class="form-label required">Pay date</label>
         <input id="pay_date" type="date" wire:model="form.pay_date" class="form-input">
         <p class="form-help">The dividend counts as income and cash on this date once confirmed.</p>
         @error('form.pay_date') <p class="form-error">{{ $message }}</p> @enderror

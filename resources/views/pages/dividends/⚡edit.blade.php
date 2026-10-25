@@ -119,10 +119,10 @@ new #[Title('Dividend')] class extends Component
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">
+            <h1 class="page-title">
                 {{ $dividend->ticker }} dividend · ex-date {{ $dividend->ex_date->format('M j, Y') }}
                 @if ($dividend->isVoided())
-                    <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Voided</span>
+                    <x-badge tone="gray" class="ms-2 align-middle">Voided</x-badge>
                 @endif
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">
@@ -133,7 +133,7 @@ new #[Title('Dividend')] class extends Component
     </div>
 
     @if (session('message'))
-        <div class="status-message">{{ session('message') }}</div>
+        <x-alert level="success">{{ session('message') }}</x-alert>
     @endif
 
     <section class="card flex flex-col gap-4">
@@ -174,13 +174,13 @@ new #[Title('Dividend')] class extends Component
 
         @unless ($dividend->isVoided())
             <div class="flex flex-col gap-4 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                <h2 class="text-lg font-semibold">{{ $dividend->isConfirmed() ? 'Change the amount received' : 'Confirm what you received' }}</h2>
+                <h2 class="section-title">{{ $dividend->isConfirmed() ? 'Change the amount received' : 'Confirm what you received' }}</h2>
 
                 <div class="flex flex-wrap items-end gap-4">
                     <button type="button" wire:click="acceptExpected" class="btn-secondary">Accept expected {{ $this->currentExpectedAmount->format() }}</button>
 
                     <div>
-                        <label for="actual_amount" class="form-label">Actual amount from the broker</label>
+                        <label for="actual_amount" class="form-label required">Actual amount from the broker</label>
                         <input id="actual_amount" type="text" inputmode="decimal" wire:model="form.actual_amount" class="form-input" placeholder="e.g. 42.50">
                         @error('form.actual_amount') <p class="form-error">{{ $message }}</p> @enderror
                     </div>
@@ -192,10 +192,10 @@ new #[Title('Dividend')] class extends Component
     </section>
 
     @if ($dividend->isVoided())
-        <div class="card text-sm">This dividend was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</div>
+        <x-alert level="info" title="Voided">This dividend was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</x-alert>
     @else
         <form wire:submit="save" class="card flex flex-col gap-6">
-            <h2 class="text-lg font-semibold">Details</h2>
+            <h2 class="section-title">Details</h2>
 
             @include('partials.dividend-fields', ['dividend' => $dividend])
 
@@ -207,7 +207,7 @@ new #[Title('Dividend')] class extends Component
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <button type="submit" class="btn-primary">Save changes</button>
+                <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save changes</button>
                 <button type="button" wire:click="void" wire:confirm="Void this dividend? It stays in the history but no longer counts." class="btn-danger">Void dividend</button>
             </div>
         </form>

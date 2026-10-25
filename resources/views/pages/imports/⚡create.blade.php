@@ -86,7 +86,7 @@ new #[Title('Upload a file')] class extends Component
 
 <div class="flex flex-col gap-6">
     <div>
-        <h1 class="text-2xl font-semibold">Upload a file</h1>
+        <h1 class="page-title">Upload a file</h1>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">
             Nothing is saved to your records yet: you will see a preview of every row first. Statements are sensitive, so the file
             itself is deleted right after it is read.
@@ -96,7 +96,7 @@ new #[Title('Upload a file')] class extends Component
     <form wire:submit="preview" class="card flex flex-col gap-4">
         <div class="grid gap-4 sm:grid-cols-2">
             <div>
-                <label for="account_id" class="form-label">Account</label>
+                <label for="account_id" class="form-label required">Account</label>
                 <select id="account_id" wire:model="account_id" class="form-input">
                     <option value="">Choose…</option>
                     @foreach ($this->accounts as $account)
@@ -107,21 +107,21 @@ new #[Title('Upload a file')] class extends Component
             </div>
 
             <div>
-                <label for="format" class="form-label">Format</label>
+                <label for="format" class="form-label required">Format</label>
                 <select id="format" wire:model="format" class="form-input">
                     @foreach (ImportFormatType::cases() as $type)
                         <option value="{{ $type->value }}">{{ $type->label() }}</option>
                     @endforeach
                 </select>
                 <p class="form-help">
-                    <a href="{{ route('imports.template') }}" class="underline underline-offset-4">Download the Protracker template</a>
+                    <a href="{{ route('imports.template') }}" class="link">Download the Protracker template</a>
                     with one example of each kind of row.
                 </p>
                 @error('format') <p class="form-error">{{ $message }}</p> @enderror
             </div>
 
             <div class="sm:col-span-2">
-                <label for="file" class="form-label">CSV file</label>
+                <label for="file" class="form-label required">CSV file</label>
                 <input id="file" type="file" accept=".csv,text/csv" wire:model="file" class="form-input">
                 <p class="form-help">Up to 2 MB and 5,000 rows.</p>
                 @error('file') <p class="form-error">{{ $message }}</p> @enderror
@@ -135,7 +135,7 @@ new #[Title('Upload a file')] class extends Component
     </form>
 
     <section class="card flex flex-col gap-2 text-sm">
-        <h2 class="text-lg font-semibold">Template columns</h2>
+        <h2 class="section-title">Template columns</h2>
         <p><strong>Required in the header:</strong> date, action, symbol, quantity, price, fees, amount, option_type, strike, expiration.</p>
         <p><strong>Optional:</strong> multiplier (default 100), settlement_date, ex_date, transaction_id, description.</p>
         <p>
@@ -149,7 +149,7 @@ new #[Title('Upload a file')] class extends Component
     </section>
 
     <section class="card flex flex-col gap-2 text-sm">
-        <h2 class="text-lg font-semibold">Broker files</h2>
+        <h2 class="section-title">Broker files</h2>
         <p>
             <strong>Fidelity activity:</strong> the layout with columns date, symbol, instrumentType, quantity, activityType,
             unitPrice, currency, fee, amount, subtype and account.

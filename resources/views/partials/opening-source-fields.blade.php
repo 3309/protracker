@@ -1,7 +1,7 @@
 {{-- Expects $sourceField and $noteField (wire:model paths) and $idPrefix (unique element id prefix). --}}
 <div class="grid gap-4 sm:grid-cols-2">
     <div>
-        <label for="{{ $idPrefix }}_source" class="form-label">Source</label>
+        <label for="{{ $idPrefix }}_source" class="form-label required">Source</label>
         <select id="{{ $idPrefix }}_source" wire:model="{{ $sourceField }}" class="form-input">
             <option value="">Choose…</option>
             @foreach (App\Enums\OpeningBalanceSource::cases() as $source)

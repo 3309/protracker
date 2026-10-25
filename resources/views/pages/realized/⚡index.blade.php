@@ -121,7 +121,7 @@ new #[Title('Realized P/L')] class extends ReportPage
 
 <div class="flex flex-col gap-6">
     <div>
-        <h1 class="text-2xl font-semibold">Realized P/L</h1>
+        <h1 class="page-title">Realized P/L</h1>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">
             Profit and loss on stock sold and options closed in the period. Stock cost is the actual purchase price (Method B);
             option premium is counted in option P/L when contracts close, never in stock cost. This is a tracking view, not a tax report.
@@ -132,77 +132,69 @@ new #[Title('Realized P/L')] class extends ReportPage
 
     @if ($this->reportingPeriod !== null)
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div class="card">
-                <div class="text-sm text-zinc-500 dark:text-zinc-400">Stocks · net</div>
-                <div class="text-xl font-semibold tabular-nums">{{ $this->stockTotals['net']->format() }}</div>
-                <div class="text-xs text-zinc-500 tabular-nums">Gross {{ $this->stockTotals['gross']->format() }} · fees {{ $this->stockTotals['fees']->format() }}</div>
-            </div>
-            <div class="card">
-                <div class="text-sm text-zinc-500 dark:text-zinc-400">Options · net</div>
-                <div class="text-xl font-semibold tabular-nums">{{ $this->optionTotals['net']->format() }}</div>
-                <div class="text-xs text-zinc-500 tabular-nums">Gross {{ $this->optionTotals['gross']->format() }} · fees {{ $this->optionTotals['fees']->format() }}</div>
-            </div>
-            <div class="card">
-                <div class="text-sm text-zinc-500 dark:text-zinc-400">Dividends received</div>
-                <div class="text-xl font-semibold tabular-nums">{{ $this->dividendTotal->format() }}</div>
-                <div class="text-xs text-zinc-500">Confirmed amounts, by pay date</div>
-            </div>
-            <div class="card">
-                <div class="text-sm text-zinc-500 dark:text-zinc-400">Combined net · {{ $this->reportingPeriod->label() }}</div>
-                <div class="text-xl font-semibold tabular-nums">{{ $this->combinedNet->format() }}</div>
-                <div class="text-xs text-zinc-500">Stocks + options + dividends</div>
-            </div>
+            <x-stat-card label="Stocks · net" icon="portfolio" :hint="'Gross '.$this->stockTotals['gross']->format().' · fees '.$this->stockTotals['fees']->format()">
+                <x-money :amount="$this->stockTotals['net']" />
+            </x-stat-card>
+            <x-stat-card label="Options · net" icon="options" :hint="'Gross '.$this->optionTotals['gross']->format().' · fees '.$this->optionTotals['fees']->format()">
+                <x-money :amount="$this->optionTotals['net']" />
+            </x-stat-card>
+            <x-stat-card label="Dividends received" icon="cash" hint="Confirmed amounts, by pay date">
+                <x-money :amount="$this->dividendTotal" />
+            </x-stat-card>
+            <x-stat-card :label="'Combined net · '.$this->reportingPeriod->label()" icon="report" hint="Stocks + options + dividends">
+                <x-money :amount="$this->combinedNet" />
+            </x-stat-card>
         </div>
 
         <section class="flex flex-col gap-3">
             <div class="flex items-center justify-between gap-4">
-                <h2 class="text-lg font-semibold">Stocks</h2>
-                <button type="button" wire:click="export('stocks')" class="btn-secondary">Download CSV</button>
+                <h2 class="section-title">Stocks</h2>
+                <button type="button" wire:click="export('stocks')" class="btn-secondary"><x-icon name="download" class="size-4" />Download CSV</button>
             </div>
 
             @if ($this->stockPieces->isEmpty())
-                <div class="card">No shares were sold in this period.</div>
+                <x-empty-state>No shares were sold in this period.</x-empty-state>
             @else
                 <div class="card overflow-x-auto p-0">
-                    <table class="w-full text-left text-sm">
-                        <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <th class="px-4 py-3 font-medium">Sold on</th>
-                                <th class="px-4 py-3 font-medium">Account</th>
-                                <th class="px-4 py-3 font-medium">Ticker</th>
-                                <th class="px-4 py-3 font-medium">Lot bought on</th>
-                                <th class="px-4 py-3 text-right font-medium">Shares</th>
-                                <th class="px-4 py-3 text-right font-medium">Proceeds</th>
-                                <th class="px-4 py-3 text-right font-medium">Cost</th>
-                                <th class="px-4 py-3 text-right font-medium">Gross P/L</th>
-                                <th class="px-4 py-3 text-right font-medium">Fees</th>
-                                <th class="px-4 py-3 text-right font-medium">Net P/L</th>
+                                <th>Sold on</th>
+                                <th>Account</th>
+                                <th>Ticker</th>
+                                <th>Lot bought on</th>
+                                <th class="text-right">Shares</th>
+                                <th class="text-right">Proceeds</th>
+                                <th class="text-right">Cost</th>
+                                <th class="text-right">Gross P/L</th>
+                                <th class="text-right">Fees</th>
+                                <th class="text-right">Net P/L</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <tbody>
                             @foreach ($this->stockPieces as $piece)
                                 <tr wire:key="realized-stock-{{ $piece->id }}">
-                                    <td class="px-4 py-2">
-                                        <a href="{{ route('stock-trades.edit', $piece->stock_trade_id) }}" class="underline underline-offset-4" wire:navigate>{{ $piece->sold_on->format('M j, Y') }}</a>
+                                    <td>
+                                        <a href="{{ route('stock-trades.edit', $piece->stock_trade_id) }}" class="link" wire:navigate>{{ $piece->sold_on->format('M j, Y') }}</a>
                                     </td>
-                                    <td class="px-4 py-2">{{ $piece->account->displayName() }}</td>
-                                    <td class="px-4 py-2 font-medium">{{ $piece->ticker }}</td>
-                                    <td class="px-4 py-2">{{ $piece->lot->acquired_on->format('M j, Y') }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $piece->shares->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $piece->proceeds->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $piece->cost->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $piece->grossProfit()->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $piece->fees()->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $piece->netProfit()->format() }}</td>
+                                    <td>{{ $piece->account->displayName() }}</td>
+                                    <td class="font-medium">{{ $piece->ticker }}</td>
+                                    <td>{{ $piece->lot->acquired_on->format('M j, Y') }}</td>
+                                    <td class="num">{{ $piece->shares->format() }}</td>
+                                    <td class="num">{{ $piece->proceeds->format() }}</td>
+                                    <td class="num">{{ $piece->cost->format() }}</td>
+                                    <td class="num"><x-money :amount="$piece->grossProfit()" /></td>
+                                    <td class="num">{{ $piece->fees()->format() }}</td>
+                                    <td class="num"><x-money :amount="$piece->netProfit()" /></td>
                                 </tr>
                             @endforeach
                         </tbody>
-                        <tfoot class="border-t border-zinc-200 font-medium dark:border-zinc-700">
+                        <tfoot>
                             <tr>
-                                <td colspan="7" class="px-4 py-2">Stock total</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $this->stockTotals['gross']->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $this->stockTotals['fees']->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $this->stockTotals['net']->format() }}</td>
+                                <td colspan="7">Stock total</td>
+                                <td class="num"><x-money :amount="$this->stockTotals['gross']" /></td>
+                                <td class="num">{{ $this->stockTotals['fees']->format() }}</td>
+                                <td class="num"><x-money :amount="$this->stockTotals['net']" /></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -212,53 +204,53 @@ new #[Title('Realized P/L')] class extends ReportPage
 
         <section class="flex flex-col gap-3">
             <div class="flex items-center justify-between gap-4">
-                <h2 class="text-lg font-semibold">Options</h2>
-                <button type="button" wire:click="export('options')" class="btn-secondary">Download CSV</button>
+                <h2 class="section-title">Options</h2>
+                <button type="button" wire:click="export('options')" class="btn-secondary"><x-icon name="download" class="size-4" />Download CSV</button>
             </div>
 
             @if ($this->optionCloses->isEmpty())
-                <div class="card">No option contracts were closed in this period.</div>
+                <x-empty-state>No option contracts were closed in this period.</x-empty-state>
             @else
                 <div class="card overflow-x-auto p-0">
-                    <table class="w-full text-left text-sm">
-                        <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <th class="px-4 py-3 font-medium">Closed on</th>
-                                <th class="px-4 py-3 font-medium">Account</th>
-                                <th class="px-4 py-3 font-medium">Option</th>
-                                <th class="px-4 py-3 font-medium">Event</th>
-                                <th class="px-4 py-3 text-right font-medium">Contracts</th>
-                                <th class="px-4 py-3 text-right font-medium">Opening premium</th>
-                                <th class="px-4 py-3 text-right font-medium">Closing amount</th>
-                                <th class="px-4 py-3 text-right font-medium">Gross P/L</th>
-                                <th class="px-4 py-3 text-right font-medium">Fees</th>
-                                <th class="px-4 py-3 text-right font-medium">Net P/L</th>
+                                <th>Closed on</th>
+                                <th>Account</th>
+                                <th>Option</th>
+                                <th>Event</th>
+                                <th class="text-right">Contracts</th>
+                                <th class="text-right">Opening premium</th>
+                                <th class="text-right">Closing amount</th>
+                                <th class="text-right">Gross P/L</th>
+                                <th class="text-right">Fees</th>
+                                <th class="text-right">Net P/L</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <tbody>
                             @foreach ($this->optionCloses as $event)
                                 <tr wire:key="realized-option-{{ $event->id }}">
-                                    <td class="px-4 py-2">
-                                        <a href="{{ route('options.show', $event->option_position_id) }}" class="underline underline-offset-4" wire:navigate>{{ $event->event_date->format('M j, Y') }}</a>
+                                    <td>
+                                        <a href="{{ route('options.show', $event->option_position_id) }}" class="link" wire:navigate>{{ $event->event_date->format('M j, Y') }}</a>
                                     </td>
-                                    <td class="px-4 py-2">{{ $event->account->displayName() }}</td>
-                                    <td class="px-4 py-2 font-medium">{{ $event->position->description() }}</td>
-                                    <td class="px-4 py-2">{{ $event->event_type->label() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $event->contracts }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $event->allocated_premium->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $event->closingCost()->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $event->grossProfit()->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $event->totalFees()->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $event->netProfit()->format() }}</td>
+                                    <td>{{ $event->account->displayName() }}</td>
+                                    <td class="font-medium">{{ $event->position->description() }}</td>
+                                    <td>{{ $event->event_type->label() }}</td>
+                                    <td class="num">{{ $event->contracts }}</td>
+                                    <td class="num">{{ $event->allocated_premium->format() }}</td>
+                                    <td class="num">{{ $event->closingCost()->format() }}</td>
+                                    <td class="num"><x-money :amount="$event->grossProfit()" /></td>
+                                    <td class="num">{{ $event->totalFees()->format() }}</td>
+                                    <td class="num"><x-money :amount="$event->netProfit()" /></td>
                                 </tr>
                             @endforeach
                         </tbody>
-                        <tfoot class="border-t border-zinc-200 font-medium dark:border-zinc-700">
+                        <tfoot>
                             <tr>
-                                <td colspan="7" class="px-4 py-2">Option total</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $this->optionTotals['gross']->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $this->optionTotals['fees']->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $this->optionTotals['net']->format() }}</td>
+                                <td colspan="7">Option total</td>
+                                <td class="num"><x-money :amount="$this->optionTotals['gross']" /></td>
+                                <td class="num">{{ $this->optionTotals['fees']->format() }}</td>
+                                <td class="num"><x-money :amount="$this->optionTotals['net']" /></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -268,43 +260,43 @@ new #[Title('Realized P/L')] class extends ReportPage
 
         <section class="flex flex-col gap-3">
             <div class="flex items-center justify-between gap-4">
-                <h2 class="text-lg font-semibold">Dividends</h2>
-                <button type="button" wire:click="export('dividends')" class="btn-secondary">Download CSV</button>
+                <h2 class="section-title">Dividends</h2>
+                <button type="button" wire:click="export('dividends')" class="btn-secondary"><x-icon name="download" class="size-4" />Download CSV</button>
             </div>
 
             @if ($this->dividends->isEmpty())
-                <div class="card">No confirmed dividends were paid in this period.</div>
+                <x-empty-state>No confirmed dividends were paid in this period.</x-empty-state>
             @else
                 <div class="card overflow-x-auto p-0">
-                    <table class="w-full text-left text-sm">
-                        <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <th class="px-4 py-3 font-medium">Paid on</th>
-                                <th class="px-4 py-3 font-medium">Account</th>
-                                <th class="px-4 py-3 font-medium">Ticker</th>
-                                <th class="px-4 py-3 font-medium">Ex-date</th>
-                                <th class="px-4 py-3 text-right font-medium">Expected</th>
-                                <th class="px-4 py-3 text-right font-medium">Received</th>
+                                <th>Paid on</th>
+                                <th>Account</th>
+                                <th>Ticker</th>
+                                <th>Ex-date</th>
+                                <th class="text-right">Expected</th>
+                                <th class="text-right">Received</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <tbody>
                             @foreach ($this->dividends as $dividend)
                                 <tr wire:key="realized-dividend-{{ $dividend->id }}">
-                                    <td class="px-4 py-2">
-                                        <a href="{{ route('dividends.edit', $dividend) }}" class="underline underline-offset-4" wire:navigate>{{ $dividend->pay_date->format('M j, Y') }}</a>
+                                    <td>
+                                        <a href="{{ route('dividends.edit', $dividend) }}" class="link" wire:navigate>{{ $dividend->pay_date->format('M j, Y') }}</a>
                                     </td>
-                                    <td class="px-4 py-2">{{ $dividend->account->displayName() }}</td>
-                                    <td class="px-4 py-2 font-medium">{{ $dividend->ticker }}</td>
-                                    <td class="px-4 py-2">{{ $dividend->ex_date->format('M j, Y') }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $dividend->expected_amount?->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $dividend->actual_amount?->format() }}</td>
+                                    <td>{{ $dividend->account->displayName() }}</td>
+                                    <td class="font-medium">{{ $dividend->ticker }}</td>
+                                    <td>{{ $dividend->ex_date->format('M j, Y') }}</td>
+                                    <td class="num">{{ $dividend->expected_amount?->format() }}</td>
+                                    <td class="num">{{ $dividend->actual_amount?->format() }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
-                        <tfoot class="border-t border-zinc-200 font-medium dark:border-zinc-700">
+                        <tfoot>
                             <tr>
-                                <td colspan="5" class="px-4 py-2">Dividend total</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $this->dividendTotal->format() }}</td>
+                                <td colspan="5">Dividend total</td>
+                                <td class="num"><x-money :amount="$this->dividendTotal" /></td>
                             </tr>
                         </tfoot>
                     </table>

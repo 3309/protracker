@@ -1,7 +1,7 @@
 {{-- Expects $prefix (the form property name), $optionPosition and $isAssignment. --}}
 <div class="grid gap-4 sm:grid-cols-2">
     <div>
-        <label for="{{ $prefix }}_event_date" class="form-label">{{ $isAssignment ? 'Assignment date' : 'Expiry date' }}</label>
+        <label for="{{ $prefix }}_event_date" class="form-label required">{{ $isAssignment ? 'Assignment date' : 'Expiry date' }}</label>
         <input id="{{ $prefix }}_event_date" type="date" wire:model="{{ $prefix }}.event_date" class="form-input">
         <p class="form-help">
             Use the date your broker shows. It may be up to 7 days after the expiration date ({{ $optionPosition->expires_on->format('M j, Y') }}).
@@ -13,7 +13,7 @@
     </div>
 
     <div>
-        <label for="{{ $prefix }}_contracts" class="form-label">Contracts</label>
+        <label for="{{ $prefix }}_contracts" class="form-label required">Contracts</label>
         <input id="{{ $prefix }}_contracts" type="number" min="1" step="1" wire:model="{{ $prefix }}.contracts" class="form-input">
         @error($prefix.'.contracts') <p class="form-error">{{ $message }}</p> @enderror
     </div>

@@ -1,7 +1,7 @@
 {{-- Shared fields for the add and edit account pages. Expects a Livewire component with a public AccountForm $form. --}}
 <div class="grid gap-4 sm:grid-cols-2">
     <div>
-        <label for="broker" class="form-label">Broker</label>
+        <label for="broker" class="form-label required">Broker</label>
         <select id="broker" wire:model="form.broker" class="form-input">
             <option value="">Choose a broker…</option>
             @foreach (App\Enums\Broker::cases() as $broker)
@@ -12,13 +12,13 @@
     </div>
 
     <div>
-        <label for="nickname" class="form-label">Nickname</label>
+        <label for="nickname" class="form-label required">Nickname</label>
         <input id="nickname" type="text" wire:model="form.nickname" class="form-input" placeholder="e.g. Main taxable">
         @error('form.nickname') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="account_type" class="form-label">Account type</label>
+        <label for="account_type" class="form-label required">Account type</label>
         <select id="account_type" wire:model="form.account_type" class="form-input">
             <option value="">Choose a type…</option>
             @foreach (App\Enums\AccountType::cases() as $accountType)
@@ -44,19 +44,19 @@
 
     <div class="grid gap-4 sm:grid-cols-3">
         <div>
-            <label for="option_fee_per_contract" class="form-label">Option fee per contract ($)</label>
+            <label for="option_fee_per_contract" class="form-label required">Option fee per contract ($)</label>
             <input id="option_fee_per_contract" type="text" inputmode="decimal" wire:model="form.option_fee_per_contract" class="form-input">
             @error('form.option_fee_per_contract') <p class="form-error">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="stock_fee_per_trade" class="form-label">Stock fee per trade ($)</label>
+            <label for="stock_fee_per_trade" class="form-label required">Stock fee per trade ($)</label>
             <input id="stock_fee_per_trade" type="text" inputmode="decimal" wire:model="form.stock_fee_per_trade" class="form-input">
             @error('form.stock_fee_per_trade') <p class="form-error">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="assignment_fee" class="form-label">Assignment/exercise fee ($)</label>
+            <label for="assignment_fee" class="form-label required">Assignment/exercise fee ($)</label>
             <input id="assignment_fee" type="text" inputmode="decimal" wire:model="form.assignment_fee" class="form-input">
             @error('form.assignment_fee') <p class="form-error">{{ $message }}</p> @enderror
         </div>

@@ -12,7 +12,7 @@
         </div>
     @else
         <div>
-            <label for="account_id" class="form-label">Account</label>
+            <label for="account_id" class="form-label required">Account</label>
             <select id="account_id" wire:model="form.account_id" class="form-input">
                 <option value="">Choose…</option>
                 @foreach ($accounts as $account)
@@ -23,7 +23,7 @@
         </div>
 
         <div>
-            <label for="side" class="form-label">Buy or sell</label>
+            <label for="side" class="form-label required">Buy or sell</label>
             <select id="side" wire:model="form.side" class="form-input">
                 <option value="">Choose…</option>
                 @foreach (App\Enums\TradeSide::cases() as $side)
@@ -34,26 +34,28 @@
         </div>
     @endisset
 
+    <h3 class="form-section-title border-t border-zinc-200 pt-4 sm:col-span-2 dark:border-zinc-800">The trade</h3>
+
     <div>
-        <label for="ticker" class="form-label">Ticker</label>
+        <label for="ticker" class="form-label required">Ticker</label>
         <input id="ticker" type="text" wire:model="form.ticker" class="form-input uppercase" placeholder="e.g. AAPL">
         @error('form.ticker') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="trade_date" class="form-label">Trade date</label>
+        <label for="trade_date" class="form-label required">Trade date</label>
         <input id="trade_date" type="date" wire:model="form.trade_date" class="form-input">
         @error('form.trade_date') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="shares" class="form-label">Shares</label>
+        <label for="shares" class="form-label required">Shares</label>
         <input id="shares" type="text" inputmode="decimal" wire:model="form.shares" class="form-input" placeholder="e.g. 100 or 0.5">
         @error('form.shares') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label for="price_per_share" class="form-label">Price per share</label>
+        <label for="price_per_share" class="form-label required">Price per share</label>
         <input id="price_per_share" type="text" inputmode="decimal" wire:model="form.price_per_share" class="form-input" placeholder="e.g. 52.00">
         @error('form.price_per_share') <p class="form-error">{{ $message }}</p> @enderror
     </div>
@@ -84,4 +86,6 @@
         <input id="reference_note" type="text" wire:model="form.reference_note" class="form-input" placeholder="e.g. Order number or statement page">
         @error('form.reference_note') <p class="form-error">{{ $message }}</p> @enderror
     </div>
+
+    <p class="form-help sm:col-span-2"><span class="text-red-600 dark:text-red-400">*</span> Required</p>
 </div>

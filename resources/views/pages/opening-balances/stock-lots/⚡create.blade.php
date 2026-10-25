@@ -29,7 +29,7 @@ new #[Title('Add opening stock lot')] class extends Component
 
 <div class="flex flex-col gap-6">
     <div>
-        <h1 class="text-2xl font-semibold">Add opening stock lot</h1>
+        <h1 class="page-title">Add opening stock lot</h1>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $account->displayName() }} · Opening balance</p>
     </div>
 
@@ -37,7 +37,7 @@ new #[Title('Add opening stock lot')] class extends Component
         @include('partials.stock-lot-fields')
 
         <div class="flex gap-3">
-            <button type="submit" class="btn-primary">Add stock lot</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Add stock lot</button>
             <a href="{{ route('opening-balances.show', $account) }}" class="btn-secondary" wire:navigate>Cancel</a>
         </div>
     </form>
