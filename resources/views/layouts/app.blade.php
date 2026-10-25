@@ -28,6 +28,7 @@
                         ['route' => 'dividends.index', 'label' => 'Dividends', 'active' => 'dividends.*'],
                         ['route' => 'prices.index', 'label' => 'Prices', 'active' => 'prices.*'],
                         ['route' => 'cash.index', 'label' => 'Cash', 'active' => 'cash.*'],
+                        ['route' => 'imports.index', 'label' => 'Import', 'active' => 'imports.*'],
                         ['route' => 'realized.index', 'label' => 'Realized P/L', 'active' => 'realized.*'],
                         ['route' => 'settings', 'label' => 'Settings', 'active' => 'settings'],
                         ['route' => 'settings.password', 'label' => 'Password', 'active' => 'settings.password'],

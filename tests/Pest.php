@@ -1,10 +1,13 @@
 <?php
 
+use App\Actions\Imports\PreviewImport;
 use App\Actions\Options\SaveOptionTrade;
 use App\Actions\Stocks\SaveStockTrade;
+use App\Enums\ImportFormatType;
 use App\Enums\OptionType;
 use App\Enums\TradeSide;
 use App\Models\Account;
+use App\Models\ImportBatch;
 use App\Models\OptionEvent;
 use App\Models\OptionPosition;
 use App\Models\StockTrade;
@@ -73,6 +76,18 @@ function recordStockTrade(Account $account, TradeSide $side, string $ticker, str
         'price_per_share' => UnitPrice::fromDecimal($price),
         'fees' => Money::fromDecimal($fee),
     ]);
+}
+
+/**
+ * Read CSV text in the Protracker template format into a previewed batch.
+ *
+ * @param  list<string>  $lines  data lines; the template header is added
+ */
+function previewTemplateCsv(Account $account, array $lines, string $filename = 'activity.csv'): ImportBatch
+{
+    $header = 'date,action,symbol,quantity,price,fees,amount,option_type,strike,expiration,multiplier,settlement_date,ex_date,transaction_id,description';
+
+    return app(PreviewImport::class)->handle($account, ImportFormatType::Template, implode("\n", [$header, ...$lines]), $filename, null);
 }
 
 /**

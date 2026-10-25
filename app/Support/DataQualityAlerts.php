@@ -3,10 +3,13 @@
 namespace App\Support;
 
 use App\Actions\Cash\BuildCashLedger;
+use App\Enums\ImportBatchStatus;
+use App\Enums\ImportRowStatus;
 use App\Enums\OpeningStatus;
 use App\Models\Account;
 use App\Models\BrokerBalance;
 use App\Models\Dividend;
+use App\Models\ImportRow;
 use App\Models\OptionPosition;
 use Carbon\CarbonImmutable;
 
@@ -29,7 +32,30 @@ final class DataQualityAlerts
             ...self::dividendAlerts($today, $accountIds),
             ...self::reconciliationAlerts($today, $accountIds),
             ...self::openingBalanceAlerts($accountIds),
+            ...self::importAlerts($accountIds),
         ];
+    }
+
+    /**
+     * Rows of imported files that were not imported and need a correction
+     * or decision, including possible duplicates.
+     *
+     * @param  list<int>|null  $accountIds
+     * @return list<array{message: string, url: string}>
+     */
+    private static function importAlerts(?array $accountIds): array
+    {
+        $waiting = ImportRow::query()
+            ->whereIn('status', array_filter(ImportRowStatus::cases(), fn (ImportRowStatus $status) => $status->needsReview()))
+            ->whereHas('batch', fn ($batch) => $batch
+                ->where('status', ImportBatchStatus::Committed)
+                ->when($accountIds !== null, fn ($query) => $query->whereIn('account_id', $accountIds)))
+            ->count();
+
+        return $waiting === 0 ? [] : [[
+            'message' => "{$waiting} imported ".($waiting === 1 ? 'row needs review before it' : 'rows need review before they').' can be imported or skipped.',
+            'url' => route('imports.review'),
+        ]];
     }
 
     /**

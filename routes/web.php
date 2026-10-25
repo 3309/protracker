@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ImportTemplateController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard')->name('home');
@@ -41,6 +42,12 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/prices', 'pages::prices.index')->name('prices.index');
     Route::livewire('/prices/{price}', 'pages::prices.edit')->name('prices.edit');
+
+    Route::livewire('/imports', 'pages::imports.index')->name('imports.index');
+    Route::livewire('/imports/create', 'pages::imports.create')->name('imports.create');
+    Route::get('/imports/template', ImportTemplateController::class)->name('imports.template');
+    Route::livewire('/imports/review', 'pages::imports.review')->name('imports.review');
+    Route::livewire('/imports/{importBatch}', 'pages::imports.show')->name('imports.show');
 
     Route::livewire('/positions', 'pages::positions')->name('positions');
     Route::livewire('/realized', 'pages::realized.index')->name('realized.index');

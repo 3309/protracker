@@ -7,6 +7,8 @@ use App\Models\AccountOpening;
 use App\Models\BrokerBalance;
 use App\Models\CashMovement;
 use App\Models\Dividend;
+use App\Models\ImportBatch;
+use App\Models\ImportRow;
 use App\Models\OptionEvent;
 use App\Models\OptionPosition;
 use App\Models\Price;
@@ -66,6 +68,8 @@ class AppServiceProvider extends ServiceProvider
             'broker_balance' => BrokerBalance::class,
             'cash_movement' => CashMovement::class,
             'dividend' => Dividend::class,
+            'import_batch' => ImportBatch::class,
+            'import_row' => ImportRow::class,
             'option_event' => OptionEvent::class,
             'option_position' => OptionPosition::class,
             'price' => Price::class,
