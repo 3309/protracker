@@ -18,9 +18,32 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
+@layer base {
+    /* A clear outline for whatever the keyboard is on. */
+    :focus-visible {
+        outline: 2px solid var(--color-blue-500);
+        outline-offset: 2px;
+    }
+
+    a,
+    button,
+    select,
+    summary {
+        cursor: pointer;
+    }
+}
+
 @layer components {
     .card {
-        @apply rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900;
+        @apply rounded-xl border border-zinc-200 bg-white p-6 shadow-xs dark:border-zinc-800 dark:bg-zinc-900;
+    }
+
+    .page-title {
+        @apply text-2xl font-semibold tracking-tight;
+    }
+
+    .section-title {
+        @apply text-lg font-semibold;
     }
 
     .form-label {
@@ -28,7 +51,7 @@
     }
 
     .form-input {
-        @apply mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/30 focus:outline-none dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100;
+        @apply mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 focus:outline-none dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100;
     }
 
     .form-help {
@@ -39,19 +62,70 @@
         @apply mt-1 text-sm text-red-600 dark:text-red-400;
     }
 
+    /* A group of related fields inside a form. */
+    .form-section {
+        @apply flex flex-col gap-4 border-t border-zinc-200 pt-5 first:border-0 first:pt-0 dark:border-zinc-800;
+    }
+
+    .form-section-title {
+        @apply text-sm font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400;
+    }
+
+    .required::after {
+        content: ' *';
+        @apply text-red-600 dark:text-red-400;
+    }
+
     .btn-primary {
-        @apply inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white;
+        @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-blue-500 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-400;
     }
 
     .btn-secondary {
-        @apply inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700;
+        @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-xs hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700;
     }
 
     .btn-danger {
-        @apply inline-flex items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50;
+        @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-red-500 disabled:opacity-50;
+    }
+
+    .link {
+        @apply font-medium text-blue-700 underline-offset-4 hover:underline dark:text-blue-400;
+    }
+
+    /* Tables: quiet headers, row hover, amounts lined up on the right (.num), and a stronger total row (tfoot). */
+    .data-table {
+        @apply w-full text-left text-sm;
+    }
+
+    .data-table thead {
+        @apply border-b border-zinc-200 bg-zinc-50 text-xs tracking-wide text-zinc-500 uppercase dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400;
+    }
+
+    .data-table th {
+        @apply px-4 py-3 font-medium;
+    }
+
+    .data-table td {
+        @apply px-4 py-2.5 align-top;
+    }
+
+    .data-table tbody tr {
+        @apply border-b border-zinc-100 last:border-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/40;
+    }
+
+    .data-table tfoot {
+        @apply border-t-2 border-zinc-200 bg-zinc-50 font-semibold dark:border-zinc-700 dark:bg-zinc-900/60;
+    }
+
+    .num {
+        @apply text-right whitespace-nowrap tabular-nums;
+    }
+
+    .muted {
+        @apply text-xs text-zinc-500 dark:text-zinc-400;
     }
 
     .status-message {
-        @apply rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200;
+        @apply rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200;
     }
 }
