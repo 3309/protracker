@@ -7,6 +7,7 @@ use App\Enums\OpeningBalanceSource;
 use App\Enums\OptionSide;
 use App\Enums\OptionType;
 use App\Enums\PositionOrigin;
+use App\Exceptions\InsufficientSharesException;
 use App\Exceptions\OptionPositionException;
 use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\Account;
@@ -150,9 +151,9 @@ class OptionPositionForm extends Form
 
         try {
             app(SaveOptionTrade::class)->updatePosition($position, $this->positionAttributes($position->account), $this->reason);
-        } catch (OptionPositionException $exception) {
+        } catch (OptionPositionException|InsufficientSharesException $exception) {
             $position->refresh();
-            $this->addError($exception->field === 'event_date' ? 'expires_on' : 'contracts', $exception->getMessage());
+            $this->addError($this->positionErrorField($exception), $exception->getMessage());
 
             return false;
         }

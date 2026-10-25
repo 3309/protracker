@@ -1,7 +1,11 @@
 <?php
 
+use App\Enums\OptionEventType;
+use App\Enums\OptionType;
 use App\Enums\PositionOrigin;
 use App\Livewire\Forms\BuyToCloseForm;
+use App\Livewire\Forms\OptionLifecycleForm;
+use App\Livewire\Forms\RollForm;
 use App\Models\OptionEvent;
 use App\Models\OptionPosition;
 use App\Support\Money;
@@ -12,9 +16,23 @@ use Livewire\Component;
 
 new #[Title('Option position')] class extends Component
 {
+    /** The actions offered for open contracts. */
+    public const array ACTIONS = [
+        'buy_to_close' => 'Buy to close',
+        'expired' => 'Expired worthless',
+        'assigned' => 'Assigned',
+        'roll' => 'Roll',
+    ];
+
     public OptionPosition $optionPosition;
 
+    public string $action = 'buy_to_close';
+
     public BuyToCloseForm $close;
+
+    public OptionLifecycleForm $lifecycle;
+
+    public RollForm $roll;
 
     public function mount(OptionPosition $optionPosition): void
     {
@@ -22,9 +40,23 @@ new #[Title('Option position')] class extends Component
         $this->close->contracts = (string) $optionPosition->openContracts();
     }
 
+    public function chooseAction(string $action): void
+    {
+        abort_unless(array_key_exists($action, self::ACTIONS), 404);
+
+        $this->action = $action;
+
+        match ($action) {
+            'expired' => $this->lifecycle->prepare($this->optionPosition, OptionEventType::Expired),
+            'assigned' => $this->lifecycle->prepare($this->optionPosition, OptionEventType::Assigned),
+            'roll' => $this->roll->prepare($this->optionPosition),
+            default => $this->close->contracts = (string) $this->optionPosition->openContracts(),
+        };
+    }
+
     public function buyToClose(): void
     {
-        abort_if($this->optionPosition->isVoided(), 403, 'A voided option cannot be closed.');
+        $this->ensureCanRecordEvents();
 
         $event = $this->close->store($this->optionPosition);
 
@@ -32,11 +64,43 @@ new #[Title('Option position')] class extends Component
             return;
         }
 
-        unset($this->events, $this->realizedNetProfit);
-
-        $this->close->contracts = (string) $this->optionPosition->openContracts();
+        $this->afterEvent();
 
         session()->now('message', "Bought to close {$event->contracts} ".str('contract')->plural($event->contracts).". Net realized P/L: {$event->netProfit()->format()}.");
+    }
+
+    public function recordLifecycleEvent(): void
+    {
+        $this->ensureCanRecordEvents();
+
+        $event = $this->lifecycle->store($this->optionPosition);
+
+        if ($event === null) {
+            return;
+        }
+
+        $this->afterEvent();
+
+        $message = $event->event_type === OptionEventType::Assigned
+            ? "Assigned {$event->contracts} ".str('contract')->plural($event->contracts).'. The stock '.($this->optionPosition->option_type === OptionType::Put ? 'purchase' : 'sale').' at the strike has been recorded.'
+            : "{$event->contracts} ".str('contract')->plural($event->contracts).' expired worthless.';
+
+        session()->now('message', "{$message} Net realized option P/L: {$event->netProfit()->format()}.");
+    }
+
+    public function recordRoll(): void
+    {
+        $this->ensureCanRecordEvents();
+
+        $newLeg = $this->roll->store($this->optionPosition);
+
+        if ($newLeg === null) {
+            return;
+        }
+
+        session()->flash('message', "Rolled into {$newLeg->contracts} × {$newLeg->description()}. Roll net credit: {$newLeg->rollNetCredit()?->format()}.");
+
+        $this->redirectRoute('options.show', $newLeg, navigate: true);
     }
 
     /**
@@ -48,6 +112,7 @@ new #[Title('Option position')] class extends Component
     public function events(): Collection
     {
         return $this->optionPosition->events()
+            ->with(['stockTrade', 'rolledInto'])
             ->orderBy('event_date')
             ->orderBy('id')
             ->get()
@@ -68,6 +133,19 @@ new #[Title('Option position')] class extends Component
             ? route('opening-balances.options.edit', $this->optionPosition)
             : route('options.edit', $this->optionPosition);
     }
+
+    private function ensureCanRecordEvents(): void
+    {
+        abort_if($this->optionPosition->isVoided(), 403, 'A voided option cannot be closed.');
+    }
+
+    private function afterEvent(): void
+    {
+        unset($this->events, $this->realizedNetProfit);
+
+        $this->action = 'buy_to_close';
+        $this->close->contracts = (string) $this->optionPosition->openContracts();
+    }
 };
 ?>
 
@@ -83,8 +161,18 @@ new #[Title('Option position')] class extends Component
                 @endif
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $optionPosition->account->displayName() }} · {{ $optionPosition->origin->label() }} · {{ $optionPosition->side->label() }}</p>
+            @if ($optionPosition->rolledFromEvent)
+                <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                    Opened by rolling
+                    <a href="{{ route('options.show', $optionPosition->rolledFromEvent->option_position_id) }}" class="underline underline-offset-4" wire:navigate>{{ $optionPosition->rolledFromEvent->position->description() }}</a>
+                    · roll net credit {{ $optionPosition->rollNetCredit()?->format() }}
+                </p>
+            @endif
         </div>
         <div class="flex flex-wrap gap-3">
+            @if ($optionPosition->isInRollChain())
+                <a href="{{ route('options.chain', $optionPosition) }}" class="btn-secondary" wire:navigate>Roll chain</a>
+            @endif
             <a href="{{ $this->correctionUrl }}" class="btn-secondary" wire:navigate>{{ $optionPosition->isVoided() ? 'View history' : 'Correct or void' }}</a>
             <a href="{{ route('options.index') }}" class="btn-secondary" wire:navigate>Back to options</a>
         </div>
@@ -129,12 +217,12 @@ new #[Title('Option position')] class extends Component
                 <dd class="tabular-nums">{{ $this->realizedNetProfit->format() }}</dd>
             </div>
         </dl>
-        <p class="form-help mt-4">Premium becomes realized profit only for contracts that have closed. Open contracts are not counted yet.</p>
+        <p class="form-help mt-4">Premium becomes realized profit only for contracts that have closed, expired or been assigned. Open contracts are not counted yet.</p>
     </section>
 
     @if ($this->events->isNotEmpty())
         <section class="card flex flex-col gap-4">
-            <h2 class="text-lg font-semibold">Closes</h2>
+            <h2 class="text-lg font-semibold">Events</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
@@ -155,7 +243,19 @@ new #[Title('Option position')] class extends Component
                         @foreach ($this->events as $event)
                             <tr wire:key="event-{{ $event->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $event->isVoided()])>
                                 <td class="py-2 pe-4">{{ $event->event_date->format('M j, Y') }}</td>
-                                <td class="py-2 pe-4">{{ $event->event_type->label() }}</td>
+                                <td class="py-2 pe-4">
+                                    {{ $event->event_type->label() }}
+                                    @if ($event->stockTrade)
+                                        <a href="{{ route('stock-trades.edit', $event->stockTrade) }}" class="block text-xs underline underline-offset-4" wire:navigate>
+                                            Stock {{ $event->stockTrade->side->label() }} {{ $event->stockTrade->shares->format() }} at {{ $event->stockTrade->price_per_share->format() }}
+                                        </a>
+                                    @endif
+                                    @if ($event->rolledInto)
+                                        <a href="{{ route('options.show', $event->rolledInto) }}" class="block text-xs underline underline-offset-4" wire:navigate>
+                                            Into {{ $event->rolledInto->description() }}
+                                        </a>
+                                    @endif
+                                </td>
                                 <td class="py-2 pe-4 text-right tabular-nums">{{ $event->contracts }}</td>
                                 <td class="py-2 pe-4 text-right tabular-nums">{{ $event->price_per_share?->format() }}</td>
                                 <td class="py-2 pe-4 text-right tabular-nums">{{ $event->allocated_premium->format() }}</td>
@@ -174,19 +274,48 @@ new #[Title('Option position')] class extends Component
                     </tbody>
                 </table>
             </div>
-            <p class="form-help">Fees are the opening fee for these contracts plus the closing fee.</p>
+            <p class="form-help">
+                Fees are the opening fee for these contracts plus any closing fee. An assignment fee is charged on its stock trade,
+                so it counts in stock profit.
+            </p>
         </section>
     @endif
 
     @if (! $optionPosition->isVoided() && $optionPosition->isOpen())
-        <form wire:submit="buyToClose" class="card flex flex-col gap-4">
-            <h2 class="text-lg font-semibold">Buy to close</h2>
-
-            @include('partials.buy-to-close-fields', ['feePerContract' => $optionPosition->account->option_fee_per_contract, 'prefix' => 'close'])
-
-            <div>
-                <button type="submit" class="btn-primary">Record buy to close</button>
+        <section class="card flex flex-col gap-4">
+            <div class="flex flex-wrap gap-2" role="tablist">
+                @foreach ($this::ACTIONS as $key => $label)
+                    <button
+                        type="button"
+                        role="tab"
+                        wire:click="chooseAction('{{ $key }}')"
+                        @class(['btn-primary' => $action === $key, 'btn-secondary' => $action !== $key])
+                    >{{ $label }}</button>
+                @endforeach
             </div>
-        </form>
+
+            @if ($action === 'buy_to_close')
+                <form wire:submit="buyToClose" class="flex flex-col gap-4">
+                    @include('partials.buy-to-close-fields', ['feePerContract' => $optionPosition->account->option_fee_per_contract, 'prefix' => 'close'])
+                    <div>
+                        <button type="submit" class="btn-primary">Record buy to close</button>
+                    </div>
+                </form>
+            @elseif ($action === 'roll')
+                <form wire:submit="recordRoll" class="flex flex-col gap-4">
+                    @include('partials.roll-fields', ['optionPosition' => $optionPosition])
+                    <div>
+                        <button type="submit" class="btn-primary">Record roll</button>
+                    </div>
+                </form>
+            @else
+                <form wire:submit="recordLifecycleEvent" class="flex flex-col gap-4">
+                    @include('partials.option-lifecycle-fields', ['optionPosition' => $optionPosition, 'prefix' => 'lifecycle', 'isAssignment' => $action === 'assigned'])
+                    <div>
+                        <button type="submit" class="btn-primary">{{ $action === 'assigned' ? 'Record assignment' : 'Record expiry' }}</button>
+                    </div>
+                </form>
+            @endif
+        </section>
     @endif
 </div>

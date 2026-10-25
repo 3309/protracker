@@ -2,6 +2,7 @@
 
 namespace App\Actions\Options;
 
+use App\Enums\OptionEventType;
 use App\Exceptions\OptionPositionException;
 use App\Models\OptionEvent;
 use App\Models\OptionPosition;
@@ -60,9 +61,14 @@ class RebuildOptionPosition
 
         foreach ($events as $event) {
             $eventDate = $event->event_date->format('Y-m-d');
+            $latestDate = $position->expires_on->addDays($event->event_type->daysAllowedAfterExpiration())->format('Y-m-d');
 
-            if ($eventDate < $position->opened_on->format('Y-m-d') || $eventDate > $position->expires_on->format('Y-m-d')) {
+            if ($eventDate < $position->opened_on->format('Y-m-d') || $eventDate > $latestDate) {
                 throw OptionPositionException::closedOutsideLifetime($position, $event);
+            }
+
+            if ($event->event_type === OptionEventType::Expired && $eventDate < $position->expires_on->format('Y-m-d')) {
+                throw OptionPositionException::expiredEarly($position);
             }
 
             $closedAfter = $closedBefore + $event->contracts;

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Forms\Concerns;
 
+use App\Exceptions\InsufficientSharesException;
+use App\Exceptions\OptionPositionException;
 use App\Models\Setting;
 use App\Support\FixedDecimal;
 use Closure;
@@ -31,6 +33,22 @@ trait SharedFormInput
             if ($valueClass::fromDecimal((string) $value)->isZero()) {
                 $fail($message);
             }
+        };
+    }
+
+    /**
+     * The field of an option position form that a refused correction belongs to.
+     */
+    private function positionErrorField(OptionPositionException|InsufficientSharesException $exception): string
+    {
+        if (! $exception instanceof OptionPositionException) {
+            return 'contracts';
+        }
+
+        return match ($exception->field) {
+            'event_date' => 'expires_on',
+            'option_type' => 'option_type',
+            default => 'contracts',
         };
     }
 

@@ -32,6 +32,17 @@ new #[Title('Options')] class extends ReportPage
         return $query->orderBy('expires_on')->orderBy('underlying')->orderBy('id')->get();
     }
 
+    public function isPastExpiration(OptionPosition $position): bool
+    {
+        return $position->isPastExpiration($this->today());
+    }
+
+    #[Computed]
+    public function pastExpirationCount(): int
+    {
+        return $this->positions->filter(fn (OptionPosition $position) => $this->isPastExpiration($position))->count();
+    }
+
     /**
      * Calendar days from today until expiration; negative once expired.
      */
@@ -61,6 +72,13 @@ new #[Title('Options')] class extends ReportPage
             </select>
         </div>
     </div>
+
+    @if ($this->pastExpirationCount > 0)
+        <div class="card border-amber-300 text-sm text-amber-800 dark:border-amber-700 dark:text-amber-300">
+            {{ $this->pastExpirationCount }} {{ Str::plural('option', $this->pastExpirationCount) }} still open after the expiration date.
+            Open each one and record whether it expired worthless or was assigned. Nothing is closed automatically.
+        </div>
+    @endif
 
     @if ($this->positions->isEmpty())
         <div class="card">No option positions to show.</div>
@@ -94,6 +112,8 @@ new #[Title('Options')] class extends ReportPage
                             <td class="px-4 py-3 text-right tabular-nums">
                                 @if ($position->isVoided())
                                     Voided
+                                @elseif ($this->isPastExpiration($position))
+                                    <span class="font-medium text-amber-700 dark:text-amber-400">Past expiration — record expiry or assignment</span>
                                 @elseif ($position->isOpen())
                                     {{ $this->daysToExpiry($position) }}
                                 @else

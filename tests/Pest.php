@@ -96,6 +96,47 @@ function recordSellToOpen(Account $account, OptionType $type, string $ticker, st
 }
 
 /**
+ * Record that contracts expired worthless, through the real options engine.
+ */
+function recordExpiry(OptionPosition $position, string $date, int $contracts): OptionEvent
+{
+    return app(SaveOptionTrade::class)->expire($position, ['event_date' => $date, 'contracts' => $contracts]);
+}
+
+/**
+ * Record an assignment and its stock trade at the strike, through the real engines.
+ */
+function recordAssignment(OptionPosition $position, string $date, int $contracts, string $stockFee = '0'): OptionEvent
+{
+    return app(SaveOptionTrade::class)->assign($position, ['event_date' => $date, 'contracts' => $contracts], Money::fromDecimal($stockFee));
+}
+
+/**
+ * Roll contracts into a new option of the same ticker and type, through the real options engine.
+ */
+function recordRoll(OptionPosition $position, string $date, int $contracts, string $buyBackPrice, string $closingFee, string $newStrike, string $newExpiresOn, int $newContracts, string $newPremium, string $newOpeningFee): OptionPosition
+{
+    $settlementDate = MarketCalendar::optionSettlementDate(CarbonImmutable::parse($date));
+
+    return app(SaveOptionTrade::class)->roll($position, [
+        'event_date' => $date,
+        'settlement_date' => $settlementDate,
+        'contracts' => $contracts,
+        'price_per_share' => UnitPrice::fromDecimal($buyBackPrice),
+        'fees' => Money::fromDecimal($closingFee),
+    ], [
+        'strike' => UnitPrice::fromDecimal($newStrike),
+        'expires_on' => $newExpiresOn,
+        'opened_on' => $date,
+        'opening_settlement_date' => $settlementDate,
+        'contracts' => $newContracts,
+        'multiplier' => $position->multiplier,
+        'premium_per_share' => UnitPrice::fromDecimal($newPremium),
+        'opening_fees' => Money::fromDecimal($newOpeningFee),
+    ]);
+}
+
+/**
  * Buy back contracts of an option position through the real options engine.
  */
 function recordBuyToClose(OptionPosition $position, string $date, int $contracts, string $price, string $fee): OptionEvent

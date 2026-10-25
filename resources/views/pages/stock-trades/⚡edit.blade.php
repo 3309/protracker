@@ -28,6 +28,7 @@ new #[Title('Edit stock trade')] class extends Component
     public function save(): void
     {
         abort_if($this->stockTrade->isVoided(), 403, 'A voided trade cannot be changed.');
+        abort_if($this->stockTrade->isFromAssignment(), 403, 'A trade created by an assignment is changed through the assignment.');
 
         $saved = $this->form->update();
 
@@ -45,6 +46,7 @@ new #[Title('Edit stock trade')] class extends Component
     public function void(SaveStockTrade $saveStockTrade): void
     {
         abort_if($this->stockTrade->isVoided(), 403, 'This trade is already voided.');
+        abort_if($this->stockTrade->isFromAssignment(), 403, 'A trade created by an assignment is voided through the assignment.');
 
         $this->validate(
             ['form.reason' => ['required', 'string', 'max:1000']],
@@ -129,6 +131,11 @@ new #[Title('Edit stock trade')] class extends Component
 
     @if ($stockTrade->isVoided())
         <div class="card text-sm">This trade was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</div>
+    @elseif ($stockTrade->isFromAssignment())
+        <div class="card text-sm">
+            This trade was created by an option assignment at the strike. To correct or void it, change
+            <a href="{{ route('options.events.edit', $stockTrade->option_event_id) }}" class="underline underline-offset-4" wire:navigate>the assignment</a>.
+        </div>
     @else
         <form wire:submit="save" wire:confirm="Save this correction? Realized profit for {{ $stockTrade->ticker }} in this account will be recalculated." class="card flex flex-col gap-6">
             @include('partials.stock-trade-fields', ['stockTrade' => $stockTrade])

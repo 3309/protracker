@@ -16,11 +16,12 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
- * Something that happened to some or all contracts of an option position,
- * such as buying them back to close.
+ * Something that happened to some or all contracts of an option position:
+ * bought back to close, rolled, expired worthless or assigned.
  *
  * The event's realized profit is the part of the opening premium belonging
  * to the contracts it closed, minus what it cost to close them, minus the
@@ -45,6 +46,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read OptionPosition $position
  * @property-read Account $account
+ * @property-read StockTrade|null $stockTrade
+ * @property-read OptionPosition|null $rolledInto
  */
 #[Fillable([
     'option_position_id',
@@ -113,7 +116,28 @@ class OptionEvent extends Model
     }
 
     /**
+     * For an assignment, the stock buy (put) or sale (call) at the strike it created.
+     *
+     * @return HasOne<StockTrade, $this>
+     */
+    public function stockTrade(): HasOne
+    {
+        return $this->hasOne(StockTrade::class);
+    }
+
+    /**
+     * For a roll, the new option sold to replace the contracts bought back.
+     *
+     * @return HasOne<OptionPosition, $this>
+     */
+    public function rolledInto(): HasOne
+    {
+        return $this->hasOne(OptionPosition::class, 'rolled_from_event_id');
+    }
+
+    /**
      * What it cost to buy the contracts back (price × multiplier × contracts).
+     * Expiry and assignment cost nothing to close.
      */
     public function closingCost(): Money
     {

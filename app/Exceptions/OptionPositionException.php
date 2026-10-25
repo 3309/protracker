@@ -38,12 +38,37 @@ class OptionPositionException extends Exception
 
     public static function closedOutsideLifetime(OptionPosition $position, OptionEvent $event): self
     {
+        $rule = $event->event_type->daysAllowedAfterExpiration() > 0
+            ? 'An expiry or assignment must be on or after the opening date and no more than '.$event->event_type->daysAllowedAfterExpiration().' days after expiration.'
+            : 'A buy-back must be on or after the opening date and on or before expiration.';
+
         return new self(sprintf(
-            'A close on %s is outside the life of %s, which was opened on %s. Closes must be on or after the opening date and on or before expiration.',
+            'The event on %s is outside the life of %s, which was opened on %s. %s',
             $event->event_date->format('M j, Y'),
             $position->description(),
             $position->opened_on->format('M j, Y'),
+            $rule,
         ), 'event_date');
+    }
+
+    public static function expiredEarly(OptionPosition $position): self
+    {
+        return new self("{$position->description()} cannot expire before its expiration date. Record a buy to close or an early assignment instead.", 'event_date');
+    }
+
+    public static function typeChangeWithAssignments(OptionPosition $position): self
+    {
+        return new self("{$position->description()} has recorded assignments. Void them before changing put or call.", 'option_type');
+    }
+
+    public static function rollVoidedFromNewLeg(): self
+    {
+        return new self('This buy-back is part of a roll. To undo the roll, void the new option it opened; both are voided together.', 'reason');
+    }
+
+    public static function rollLegHasEvents(OptionPosition $position): self
+    {
+        return new self("{$position->description()} has its own closes, expiries or assignments. Void those first, then void the roll.", 'reason');
     }
 
     public static function hasRecordedCloses(OptionPosition $position): self

@@ -15,6 +15,7 @@ use App\Support\Quantity;
 use App\Support\UnitPrice;
 use Carbon\CarbonImmutable;
 use Database\Factories\OptionPositionFactory;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,12 +47,15 @@ use Illuminate\Support\Carbon;
  * @property UnitPrice $premium_per_share
  * @property Money $opening_fees
  * @property PositionOrigin $origin
+ * @property int|null $rolled_from_event_id
+ * @property int|null $roll_chain_id
  * @property OpeningBalanceSource|null $source
  * @property string|null $reference_note
  * @property Carbon|null $voided_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Account $account
+ * @property-read OptionEvent|null $rolledFromEvent
  */
 #[Fillable([
     'account_id',
@@ -68,6 +72,8 @@ use Illuminate\Support\Carbon;
     'premium_per_share',
     'opening_fees',
     'origin',
+    'rolled_from_event_id',
+    'roll_chain_id',
     'source',
     'reference_note',
 ])]
@@ -136,6 +142,61 @@ class OptionPosition extends Model
     public function events(): HasMany
     {
         return $this->hasMany(OptionEvent::class);
+    }
+
+    /**
+     * For a leg sold as part of a roll, the buy-back of the contracts it replaced.
+     *
+     * @return BelongsTo<OptionEvent, $this>
+     */
+    public function rolledFromEvent(): BelongsTo
+    {
+        return $this->belongsTo(OptionEvent::class, 'rolled_from_event_id');
+    }
+
+    public function isInRollChain(): bool
+    {
+        return $this->roll_chain_id !== null;
+    }
+
+    /**
+     * The net cash credit of the roll that opened this leg: the new premium
+     * minus the cost of buying back the old contracts, minus the closing fee
+     * and this leg's opening fee. Null when this leg was not opened by a roll.
+     */
+    public function rollNetCredit(): ?Money
+    {
+        $rolledFrom = $this->rolledFromEvent;
+
+        if ($rolledFrom === null) {
+            return null;
+        }
+
+        return $this->premiumReceived()
+            ->minus($rolledFrom->closingCost())
+            ->minus($rolledFrom->fees)
+            ->minus($this->opening_fees);
+    }
+
+    /**
+     * The realized net profit of every event that has not been voided.
+     */
+    public function realizedNetProfit(): Money
+    {
+        return $this->events()->notVoided()->get()
+            ->each(fn (OptionEvent $event) => $event->setRelation('position', $this))
+            ->reduce(fn (Money $total, OptionEvent $event) => $total->plus($event->netProfit()), Money::zero());
+    }
+
+    /**
+     * Still has open contracts after its expiration date, so an expiry or
+     * assignment needs to be recorded.
+     */
+    public function isPastExpiration(DateTimeInterface $today): bool
+    {
+        return ! $this->isVoided()
+            && $this->isOpen()
+            && $this->expires_on->format('Y-m-d') < $today->format('Y-m-d');
     }
 
     /**

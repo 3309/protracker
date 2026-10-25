@@ -4,6 +4,7 @@ namespace App\Livewire\Forms;
 
 use App\Actions\Options\SaveOptionTrade;
 use App\Enums\OptionType;
+use App\Exceptions\InsufficientSharesException;
 use App\Exceptions\OptionPositionException;
 use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\Account;
@@ -161,9 +162,9 @@ class SellToOpenForm extends Form
 
         try {
             app(SaveOptionTrade::class)->updatePosition($position, $this->positionAttributes($position->account), $this->reason);
-        } catch (OptionPositionException $exception) {
+        } catch (OptionPositionException|InsufficientSharesException $exception) {
             $position->refresh();
-            $this->addError($exception->field === 'event_date' ? 'expires_on' : 'contracts', $exception->getMessage());
+            $this->addError($this->positionErrorField($exception), $exception->getMessage());
 
             return false;
         }

@@ -26,6 +26,7 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/options/create', 'pages::options.create')->name('options.create');
     Route::livewire('/options/{optionPosition}', 'pages::options.show')->name('options.show');
     Route::livewire('/options/{optionPosition}/edit', 'pages::options.edit')->name('options.edit');
+    Route::livewire('/options/{optionPosition}/chain', 'pages::options.chain')->name('options.chain');
     Route::livewire('/option-events/{optionEvent}/edit', 'pages::options.events.edit')->name('options.events.edit');
 
     Route::livewire('/positions', 'pages::positions')->name('positions');

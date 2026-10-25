@@ -81,7 +81,7 @@ class SaveStockTrade
         $lot = $trade->lot ?? new StockLot([
             'account_id' => $trade->account_id,
             'stock_trade_id' => $trade->id,
-            'origin' => PositionOrigin::Purchase,
+            'origin' => $trade->isFromAssignment() ? PositionOrigin::PutAssignment : PositionOrigin::Purchase,
         ]);
 
         $lot->withAuditReason($reason)->fill([

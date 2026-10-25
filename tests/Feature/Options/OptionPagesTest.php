@@ -191,7 +191,7 @@ describe('corrections', function () {
             ->assertSee('Price Per Share: $0.40 → $0.30')
             ->set('form.reason', 'Did not happen')
             ->call('void')
-            ->assertSee('Close voided.');
+            ->assertSee('Event voided.');
 
         expect($this->put->fresh()->openContracts())->toBe(1);
     });

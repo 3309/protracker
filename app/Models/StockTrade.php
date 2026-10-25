@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $account_id
+ * @property int|null $option_event_id
  * @property string $ticker
  * @property TradeSide $side
  * @property CarbonImmutable $trade_date
@@ -42,9 +43,11 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Account $account
  * @property-read StockLot|null $lot
+ * @property-read OptionEvent|null $optionEvent
  */
 #[Fillable([
     'account_id',
+    'option_event_id',
     'ticker',
     'side',
     'trade_date',
@@ -95,6 +98,22 @@ class StockTrade extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    /**
+     * The option assignment that created this trade, if any. Such a trade is
+     * changed only through its assignment.
+     *
+     * @return BelongsTo<OptionEvent, $this>
+     */
+    public function optionEvent(): BelongsTo
+    {
+        return $this->belongsTo(OptionEvent::class);
+    }
+
+    public function isFromAssignment(): bool
+    {
+        return $this->option_event_id !== null;
     }
 
     /**

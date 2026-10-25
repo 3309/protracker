@@ -73,7 +73,12 @@ new #[Title('Stock trades')] class extends ReportPage
                         <tr wire:key="trade-{{ $trade->id }}" @class(['text-zinc-400 line-through dark:text-zinc-500' => $trade->isVoided()])>
                             <td class="px-4 py-3">{{ $trade->trade_date->format('M j, Y') }}</td>
                             <td class="px-4 py-3">{{ $trade->account->displayName() }}</td>
-                            <td class="px-4 py-3">{{ $trade->side->label() }}</td>
+                            <td class="px-4 py-3">
+                                {{ $trade->side->label() }}
+                                @if ($trade->isFromAssignment())
+                                    <span class="text-xs text-zinc-500">Assignment</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 font-medium">{{ $trade->ticker }}</td>
                             <td class="px-4 py-3 text-right tabular-nums">{{ $trade->shares->format() }}</td>
                             <td class="px-4 py-3 text-right tabular-nums">{{ $trade->price_per_share->format() }}</td>
