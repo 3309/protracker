@@ -2,6 +2,7 @@
 
 use App\Models\Setting;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -52,7 +53,15 @@ new #[Title('Settings')] class extends Component
             'display_timezone' => 'display time zone',
         ]);
 
-        Setting::current()
+        $settings = Setting::current();
+
+        if ($validated['reporting_start_date'] !== $settings->reporting_start_date->format('Y-m-d') && $this->reportingStartDateIsLocked) {
+            $this->addError('reporting_start_date', 'The reporting start date cannot change because opening balances have been entered as of this date.');
+
+            return;
+        }
+
+        $settings
             ->withAuditReason($validated['reason'] ?: null)
             ->update([
                 'reporting_start_date' => $validated['reporting_start_date'],
@@ -63,6 +72,12 @@ new #[Title('Settings')] class extends Component
         $this->reset('reason');
 
         session()->now('message', 'Settings saved.');
+    }
+
+    #[Computed]
+    public function reportingStartDateIsLocked(): bool
+    {
+        return Setting::current()->reportingStartDateIsLocked();
     }
 };
 ?>
@@ -77,8 +92,12 @@ new #[Title('Settings')] class extends Component
     <form wire:submit="save" class="card flex max-w-xl flex-col gap-4">
         <div>
             <label for="reporting_start_date" class="form-label">Reporting start date</label>
-            <input id="reporting_start_date" type="date" wire:model="reporting_start_date" class="form-input">
-            <p class="form-help">Reports and totals start on this date. Positions held before it are entered as opening balances.</p>
+            <input id="reporting_start_date" type="date" wire:model="reporting_start_date" class="form-input" @disabled($this->reportingStartDateIsLocked)>
+            @if ($this->reportingStartDateIsLocked)
+                <p class="form-help">Locked because opening balances have been entered as of this date. Changing it would make them wrong.</p>
+            @else
+                <p class="form-help">Reports and totals start on this date. Positions held before it are entered as opening balances.</p>
+            @endif
             @error('reporting_start_date') <p class="form-error">{{ $message }}</p> @enderror
         </div>
 

@@ -44,6 +44,18 @@ class Setting extends Model
     }
 
     /**
+     * Opening balances are recorded as of the reporting start date, so the
+     * date cannot change once any opening balance exists. Voided entries do
+     * not count.
+     */
+    public function reportingStartDateIsLocked(): bool
+    {
+        return AccountOpening::query()->whereNotNull('cash_balance')->exists()
+            || StockLot::query()->openingBalance()->notVoided()->exists()
+            || OptionPosition::query()->openingBalance()->notVoided()->exists();
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

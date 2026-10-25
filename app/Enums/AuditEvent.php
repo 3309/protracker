@@ -8,6 +8,7 @@ enum AuditEvent: string
     case Updated = 'updated';
     case Archived = 'archived';
     case Restored = 'restored';
+    case Voided = 'voided';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum AuditEvent: string
             self::Updated => 'Updated',
             self::Archived => 'Archived',
             self::Restored => 'Restored',
+            self::Voided => 'Voided',
         };
     }
 }

@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Casts\MoneyCast;
 use App\Enums\AccountType;
 use App\Enums\Broker;
+use App\Enums\OpeningStatus;
+use App\Enums\PositionOrigin;
 use App\Models\Concerns\Auditable;
 use App\Support\Money;
 use Database\Factories\AccountFactory;
@@ -13,6 +15,8 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -30,6 +34,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $archived_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read AccountOpening|null $opening
+ * @property-read int|null $opening_stock_lots_count
+ * @property-read int|null $opening_option_positions_count
  */
 #[Fillable([
     'broker',
@@ -74,12 +81,61 @@ class Account extends Model
     }
 
     /**
+     * @return HasOne<AccountOpening, $this>
+     */
+    public function opening(): HasOne
+    {
+        return $this->hasOne(AccountOpening::class);
+    }
+
+    /**
+     * @return HasMany<StockLot, $this>
+     */
+    public function stockLots(): HasMany
+    {
+        return $this->hasMany(StockLot::class);
+    }
+
+    /**
+     * @return HasMany<OptionPosition, $this>
+     */
+    public function optionPositions(): HasMany
+    {
+        return $this->hasMany(OptionPosition::class);
+    }
+
+    /**
      * @param  Builder<self>  $query
      */
     #[Scope]
     protected function active(Builder $query): void
     {
         $query->whereNull('archived_at');
+    }
+
+    /**
+     * Load what is needed to show opening-balance progress without extra queries.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function withOpeningProgress(Builder $query): void
+    {
+        $query->with('opening')->withCount([
+            'stockLots as opening_stock_lots_count' => fn (Builder $lots) => $lots->where('origin', PositionOrigin::OpeningBalance)->whereNull('voided_at'),
+            'optionPositions as opening_option_positions_count' => fn (Builder $options) => $options->where('origin', PositionOrigin::OpeningBalance)->whereNull('voided_at'),
+        ]);
+    }
+
+    /**
+     * How far this account's opening-balance setup has got.
+     */
+    public function openingStatus(): OpeningStatus
+    {
+        $lotCount = $this->opening_stock_lots_count ?? $this->stockLots()->openingBalance()->notVoided()->count();
+        $optionCount = $this->opening_option_positions_count ?? $this->optionPositions()->openingBalance()->notVoided()->count();
+
+        return OpeningStatus::determine($this->opening, $lotCount + $optionCount);
     }
 
     public function isArchived(): bool

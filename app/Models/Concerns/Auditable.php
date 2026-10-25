@@ -87,6 +87,10 @@ trait Auditable
             return $newValues['archived_at'] === null ? AuditEvent::Restored : AuditEvent::Archived;
         }
 
+        if (array_key_exists('voided_at', $newValues) && $newValues['voided_at'] !== null) {
+            return AuditEvent::Voided;
+        }
+
         return AuditEvent::Updated;
     }
 

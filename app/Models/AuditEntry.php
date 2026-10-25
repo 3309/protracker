@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AuditEvent;
+use App\Support\FixedDecimal;
 use App\Support\Money;
 use BackedEnum;
 use DateTimeInterface;
@@ -105,7 +106,7 @@ class AuditEntry extends Model
         $value = $model !== null ? $model->setRawAttributes([$field => $rawValue])->getAttribute($field) : $rawValue;
 
         return match (true) {
-            $value instanceof Money => $value->format(),
+            $value instanceof Money, $value instanceof FixedDecimal => $value->format(),
             $value instanceof DateTimeInterface => $value->format('Y-m-d'),
             $value instanceof BackedEnum && method_exists($value, 'label') => $value->label(),
             is_scalar($value) => (string) $value,

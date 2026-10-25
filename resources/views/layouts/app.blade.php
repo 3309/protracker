@@ -21,6 +21,7 @@
                     $links = [
                         ['route' => 'dashboard', 'label' => 'Dashboard', 'active' => 'dashboard'],
                         ['route' => 'accounts.index', 'label' => 'Accounts', 'active' => 'accounts.*'],
+                        ['route' => 'opening-balances.index', 'label' => 'Opening balances', 'active' => 'opening-balances.*'],
                         ['route' => 'settings', 'label' => 'Settings', 'active' => 'settings'],
                         ['route' => 'settings.password', 'label' => 'Password', 'active' => 'settings.password'],
                     ];
