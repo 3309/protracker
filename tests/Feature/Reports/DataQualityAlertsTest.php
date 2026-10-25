@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Cash\BuildCashLedger;
 use App\Enums\Broker;
 use App\Enums\OptionType;
 use App\Enums\TradeSide;
@@ -74,6 +75,39 @@ it('flags a broker balance that does not match the calculated cash', function ()
     BrokerBalance::factory()->for($this->account)->create(['as_of_date' => '2026-03-31', 'total_cash' => Money::fromDecimal('10005')]);
 
     expect(($this->messages)())->toBe(['Fidelity · Main: cash on Mar 31, 2026 differs from the broker by $5.00.']);
+});
+
+it('flags open options expiring today as critical and within 7 days as warnings, with contracts and account', function () {
+    Price::factory()->create(['ticker' => 'XYZ', 'price' => UnitPrice::fromDecimal('50'), 'as_of' => '2026-03-31 20:00:00']);
+
+    foreach (['2026-03-31' => 2, '2026-04-03' => 1, '2026-04-07' => 1, '2026-04-08' => 1] as $expiresOn => $contracts) {
+        recordSellToOpen($this->account, OptionType::Put, 'XYZ', '45', $expiresOn, '2026-03-02', $contracts, '1.00', '0.67');
+        Price::factory()->option(OptionType::Put, '45', $expiresOn)->create(['ticker' => 'XYZ', 'price' => UnitPrice::fromDecimal('0.10'), 'as_of' => '2026-03-31 20:00:00']);
+    }
+
+    $alerts = DataQualityAlerts::collect(OpenPositionsReport::build(null, null, PriceBook::load($this->today), $this->today), $this->today, null);
+
+    expect(array_map(fn (array $alert) => [$alert['level'], $alert['title'], $alert['message']], $alerts))->toBe([
+        ['critical', 'Expires today', 'XYZ $45.00 Put, expires Mar 31, 2026 · 2 contracts open · Fidelity · Main'],
+        ['warning', 'Expires in 3 days', 'XYZ $45.00 Put, expires Apr 3, 2026 · 1 contract open · Fidelity · Main'],
+        ['warning', 'Expires in 7 days', 'XYZ $45.00 Put, expires Apr 7, 2026 · 1 contract open · Fidelity · Main'],
+    ]);
+});
+
+it('warns about a negative cash balance without changing it, critical alerts first', function () {
+    Account::factory()->create(['nickname' => 'Unfinished']);
+    recordStockTrade($this->account, TradeSide::Buy, 'XYZ', '2026-03-02', '300', '50');
+    Price::factory()->create(['ticker' => 'XYZ', 'price' => UnitPrice::fromDecimal('50'), 'as_of' => '2026-03-31 20:00:00']);
+
+    $alerts = DataQualityAlerts::collect(OpenPositionsReport::build(null, null, PriceBook::load($this->today), $this->today), $this->today, null);
+
+    expect($alerts[0])->toMatchArray([
+        'level' => 'critical',
+        'title' => 'Negative cash balance',
+        'message' => 'Fidelity · Main: cash today is -$5,000.00. Check for a missing deposit or a mistyped trade.',
+    ])
+        ->and(end($alerts)['level'])->toBe('info')
+        ->and(app(BuildCashLedger::class)->handle($this->account->id)->totalOn($this->today)->format())->toBe('-$5,000.00');
 });
 
 it('flags accounts whose opening balances are not complete', function () {

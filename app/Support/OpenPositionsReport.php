@@ -136,6 +136,15 @@ final readonly class OpenPositionsReport
         return $inTheMoney ? 'In the money' : 'Out of the money';
     }
 
+    /**
+     * Market value of the stocks that have a price; stocks without one are
+     * left out (see stocksNeedingPrices).
+     */
+    public function stockMarketValueTotal(): Money
+    {
+        return $this->stocks->reduce(fn (Money $total, array $row) => $row['marketValue'] !== null ? $total->plus($row['marketValue']) : $total, Money::zero());
+    }
+
     public function stockUnrealizedTotal(): Money
     {
         return $this->stocks->reduce(fn (Money $total, array $row) => $row['unrealized'] !== null ? $total->plus($row['unrealized']) : $total, Money::zero());

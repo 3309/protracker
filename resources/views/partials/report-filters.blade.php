@@ -1,5 +1,5 @@
 {{-- Filters for pages extending App\Livewire\ReportPage. Broker and ticker filters are shown unless $showBroker or $showTicker is false; set $showPeriod to false to hide the period controls. --}}
-<div class="card flex flex-wrap items-end gap-4">
+<div class="card flex flex-wrap items-end gap-4 p-4">
     <div>
         <label for="filter_account" class="form-label">Account</label>
         <select id="filter_account" wire:model.live="account" class="form-input">

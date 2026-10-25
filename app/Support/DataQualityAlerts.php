@@ -14,26 +14,109 @@ use App\Models\OptionPosition;
 use Carbon\CarbonImmutable;
 
 /**
- * Things that need attention: missing or stale prices, options past
- * expiration, unconfirmed or differing dividends, cash that does not match
- * the broker, and incomplete opening balances.
+ * Things that need attention: negative cash, options past or near
+ * expiration, missing or stale prices, unconfirmed or differing dividends,
+ * cash that does not match the broker, incomplete opening balances and
+ * imported rows waiting for review.
+ *
+ * Each alert has a level: critical (something is wrong or due today),
+ * warning (due soon or worth checking) or info (missing information).
+ * Alerts only read the records; they never change them.
+ *
+ * @phpstan-type Alert array{level: string, title: string, message: string, url: string}
  */
 final class DataQualityAlerts
 {
     /**
+     * Options expiring within this many calendar days are flagged.
+     */
+    public const EXPIRING_SOON_DAYS = 7;
+
+    /**
+     * Critical alerts first, then warnings, then information.
+     *
      * @param  list<int>|null  $accountIds  null for all accounts
-     * @return list<array{message: string, url: string}>
+     * @return list<Alert>
      */
     public static function collect(OpenPositionsReport $open, CarbonImmutable $today, ?array $accountIds): array
     {
-        return [
-            ...self::priceAlerts($open),
+        $alerts = [
+            ...self::negativeCashAlerts($today, $accountIds),
             ...self::expirationAlerts($today, $accountIds),
-            ...self::dividendAlerts($today, $accountIds),
+            ...self::expiringSoonAlerts($open),
             ...self::reconciliationAlerts($today, $accountIds),
-            ...self::openingBalanceAlerts($accountIds),
             ...self::importAlerts($accountIds),
+            ...self::priceAlerts($open),
+            ...self::dividendAlerts($today, $accountIds),
+            ...self::openingBalanceAlerts($accountIds),
         ];
+
+        $rank = ['critical' => 0, 'warning' => 1, 'info' => 2];
+        usort($alerts, fn (array $first, array $second) => $rank[$first['level']] <=> $rank[$second['level']]);
+
+        return $alerts;
+    }
+
+    /**
+     * Accounts whose calculated cash is below zero today. This is only a
+     * warning: nothing is blocked or corrected.
+     *
+     * @param  list<int>|null  $accountIds
+     * @return list<Alert>
+     */
+    private static function negativeCashAlerts(CarbonImmutable $today, ?array $accountIds): array
+    {
+        $alerts = [];
+
+        $accounts = Account::query()
+            ->active()
+            ->when($accountIds !== null, fn ($query) => $query->whereIn('id', $accountIds))
+            ->orderBy('nickname')
+            ->get();
+
+        foreach ($accounts as $account) {
+            $cash = app(BuildCashLedger::class)->handle($account->id)->totalOn($today);
+
+            if ($cash->isNegative()) {
+                $alerts[] = [
+                    'level' => 'critical',
+                    'title' => 'Negative cash balance',
+                    'message' => "{$account->displayName()}: cash today is {$cash->format()}. Check for a missing deposit or a mistyped trade.",
+                    'url' => route('cash.index', ['account' => $account->id]),
+                ];
+            }
+        }
+
+        return $alerts;
+    }
+
+    /**
+     * Open options expiring today or within the next few days, with the
+     * days counted the same way as on the dashboard.
+     *
+     * @return list<Alert>
+     */
+    private static function expiringSoonAlerts(OpenPositionsReport $open): array
+    {
+        return array_values($open->options
+            ->filter(fn (array $option) => $option['daysToExpiry'] >= 0 && $option['daysToExpiry'] <= self::EXPIRING_SOON_DAYS)
+            ->map(function (array $option) {
+                $position = $option['position'];
+                $days = $option['daysToExpiry'];
+                $contracts = $option['openContracts'].' '.($option['openContracts'] === 1 ? 'contract' : 'contracts');
+
+                return [
+                    'level' => $days === 0 ? 'critical' : 'warning',
+                    'title' => match (true) {
+                        $days === 0 => 'Expires today',
+                        $days === 1 => 'Expires tomorrow',
+                        default => "Expires in {$days} days",
+                    },
+                    'message' => "{$position->description()} · {$contracts} open · {$position->account->displayName()}",
+                    'url' => route('options.show', $position),
+                ];
+            })
+            ->all());
     }
 
     /**
@@ -41,7 +124,7 @@ final class DataQualityAlerts
      * or decision, including possible duplicates.
      *
      * @param  list<int>|null  $accountIds
-     * @return list<array{message: string, url: string}>
+     * @return list<Alert>
      */
     private static function importAlerts(?array $accountIds): array
     {
@@ -53,13 +136,15 @@ final class DataQualityAlerts
             ->count();
 
         return $waiting === 0 ? [] : [[
+            'level' => 'critical',
+            'title' => 'Import needs review',
             'message' => "{$waiting} imported ".($waiting === 1 ? 'row needs review before it' : 'rows need review before they').' can be imported or skipped.',
             'url' => route('imports.review'),
         ]];
     }
 
     /**
-     * @return list<array{message: string, url: string}>
+     * @return list<Alert>
      */
     private static function priceAlerts(OpenPositionsReport $open): array
     {
@@ -68,9 +153,9 @@ final class DataQualityAlerts
 
         foreach ($open->stocks->unique('ticker') as $stock) {
             if ($stock['price'] === null) {
-                $alerts[] = ['message' => "{$stock['ticker']}: price needed. Unrealized P/L is not shown until a price is entered.", 'url' => $url];
+                $alerts[] = ['level' => 'info', 'title' => 'Price needed', 'message' => "{$stock['ticker']}: price needed. Unrealized P/L is not shown until a price is entered.", 'url' => $url];
             } elseif ($stock['stale']) {
-                $alerts[] = ['message' => "{$stock['ticker']}: the latest price is stale ({$open->prices->ageInDays($stock['price'])} days old).", 'url' => $url];
+                $alerts[] = ['level' => 'info', 'title' => 'Stale price', 'message' => "{$stock['ticker']}: the latest price is stale ({$open->prices->ageInDays($stock['price'])} days old).", 'url' => $url];
             }
         }
 
@@ -78,9 +163,9 @@ final class DataQualityAlerts
             $description = $option['position']->description();
 
             if ($option['price'] === null) {
-                $alerts[] = ['message' => "{$description}: option price needed.", 'url' => $url];
+                $alerts[] = ['level' => 'info', 'title' => 'Price needed', 'message' => "{$description}: option price needed.", 'url' => $url];
             } elseif ($option['stale']) {
-                $alerts[] = ['message' => "{$description}: the latest option price is stale ({$open->prices->ageInDays($option['price'])} days old).", 'url' => $url];
+                $alerts[] = ['level' => 'info', 'title' => 'Stale price', 'message' => "{$description}: the latest option price is stale ({$open->prices->ageInDays($option['price'])} days old).", 'url' => $url];
             }
         }
 
@@ -89,7 +174,7 @@ final class DataQualityAlerts
 
     /**
      * @param  list<int>|null  $accountIds
-     * @return list<array{message: string, url: string}>
+     * @return list<Alert>
      */
     private static function expirationAlerts(CarbonImmutable $today, ?array $accountIds): array
     {
@@ -101,6 +186,8 @@ final class DataQualityAlerts
             ->orderBy('expires_on')
             ->get()
             ->map(fn (OptionPosition $position) => [
+                'level' => 'critical',
+                'title' => 'Past expiration, still open',
                 'message' => $position->isLong()
                     ? "{$position->description()} is past expiration. Record whether it expired worthless or was sold to close."
                     : "{$position->description()} is past expiration. Record whether it expired worthless or was assigned.",
@@ -111,7 +198,7 @@ final class DataQualityAlerts
 
     /**
      * @param  list<int>|null  $accountIds
-     * @return list<array{message: string, url: string}>
+     * @return list<Alert>
      */
     private static function dividendAlerts(CarbonImmutable $today, ?array $accountIds): array
     {
@@ -129,18 +216,18 @@ final class DataQualityAlerts
 
             if (! $dividend->isConfirmed()) {
                 if ($dividend->pay_date->format('Y-m-d') < $today->format('Y-m-d')) {
-                    $alerts[] = ['message' => "{$label} has not been confirmed.", 'url' => $url];
+                    $alerts[] = ['level' => 'warning', 'title' => 'Dividend not confirmed', 'message' => "{$label} has not been confirmed.", 'url' => $url];
                 }
 
                 continue;
             }
 
             if ($dividend->hasDifference()) {
-                $alerts[] = ['message' => "{$label}: the amount received differs from the expected amount by {$dividend->difference()?->format()}.", 'url' => $url];
+                $alerts[] = ['level' => 'warning', 'title' => 'Dividend differs', 'message' => "{$label}: the amount received differs from the expected amount by {$dividend->difference()?->format()}.", 'url' => $url];
             }
 
             if ($dividend->eligibleSharesChangedSinceConfirmation()) {
-                $alerts[] = ['message' => "{$label}: the shares held on the ex-date have changed since it was confirmed.", 'url' => $url];
+                $alerts[] = ['level' => 'warning', 'title' => 'Dividend shares changed', 'message' => "{$label}: the shares held on the ex-date have changed since it was confirmed.", 'url' => $url];
             }
         }
 
@@ -151,7 +238,7 @@ final class DataQualityAlerts
      * Compares the latest broker balance of each account with the ledger.
      *
      * @param  list<int>|null  $accountIds
-     * @return list<array{message: string, url: string}>
+     * @return list<Alert>
      */
     private static function reconciliationAlerts(CarbonImmutable $today, ?array $accountIds): array
     {
@@ -174,6 +261,8 @@ final class DataQualityAlerts
 
             if (! $difference->isZero() || ($settledDifference !== null && ! $settledDifference->isZero())) {
                 $alerts[] = [
+                    'level' => 'critical',
+                    'title' => 'Cash does not match the broker',
                     'message' => "{$balance->account->displayName()}: cash on {$balance->as_of_date->format('M j, Y')} differs from the broker by {$difference->format()}.",
                     'url' => route('cash.reconciliation', ['account' => $balance->account_id]),
                 ];
@@ -185,7 +274,7 @@ final class DataQualityAlerts
 
     /**
      * @param  list<int>|null  $accountIds
-     * @return list<array{message: string, url: string}>
+     * @return list<Alert>
      */
     private static function openingBalanceAlerts(?array $accountIds): array
     {
@@ -197,6 +286,8 @@ final class DataQualityAlerts
             ->get()
             ->filter(fn (Account $account) => $account->openingStatus() !== OpeningStatus::Complete)
             ->map(fn (Account $account) => [
+                'level' => 'info',
+                'title' => 'Opening balances not complete',
                 'message' => "Opening balances for {$account->displayName()} are not marked complete.",
                 'url' => route('opening-balances.show', $account),
             ])

@@ -76,7 +76,7 @@ describe('with the Example A wheel cycle', function () {
     it('shows unrealized profit from entered prices and asks for missing ones', function () {
         Livewire::withQueryParams(['year' => '2026'])
             ->test('pages::dashboard')
-            ->assertSee('Stocks: unrealized $50.00.')
+            ->assertSeeInOrder(['Stock market value', '$250.00', 'Stock unrealized P/L', '+$50.00'])
             ->assertSeeInOrder(['Robinhood · Robinhood IRA', 'ABC', '10', '$200.00', '$25.00', '$250.00', '$50.00'])
             ->assertSee('Nothing needs attention.');
     });
@@ -91,6 +91,36 @@ describe('with the Example A wheel cycle', function () {
             ->test('pages::dashboard')
             ->assertSee('No wheel cycles in this period.')
             ->assertSeeInOrder(['Open exposure', 'ABC']);
+    });
+
+    it('shows total cash and cash per broker, kept apart from P/L', function () {
+        Livewire::withQueryParams(['year' => '2026'])
+            ->test('pages::dashboard')
+            ->assertSeeInOrder(['Cash today', 'Total cash', '$15,248.66', 'Fidelity cash', '$10,448.66', 'Robinhood cash', '$4,800.00', 'Open positions'])
+            ->assertDontSee('Negative cash balance');
+    });
+
+    it('marks a negative cash balance on the cards, the table and the alerts', function () {
+        recordStockTrade($this->ira, TradeSide::Buy, 'ABC', '2026-03-30', '300', '20');
+
+        Livewire::withQueryParams(['year' => '2026', 'broker' => 'robinhood'])
+            ->test('pages::dashboard')
+            ->assertSeeInOrder(['Negative cash balance', 'Robinhood · Robinhood IRA: cash today is -$1,200.00.'])
+            ->assertSeeInOrder(['Robinhood cash', '-$1,200.00', 'Negative cash balance'])
+            ->assertSeeInOrder(['Robinhood · Robinhood IRA', 'Negative cash balance', '-$1,200.00']);
+    });
+
+    it('lets a warning be hidden but not a critical alert', function () {
+        recordSellToOpen($this->ira, OptionType::Put, 'ABC', '18', '2026-04-03', '2026-03-30', 1, '0.40', '0.67');
+        recordStockTrade($this->ira, TradeSide::Buy, 'ABC', '2026-03-30', '300', '20');
+
+        $html = Livewire::withQueryParams(['year' => '2026', 'broker' => 'robinhood'])->test('pages::dashboard')->html();
+
+        $alerts = array_slice(preg_split('/role="(?:alert|status)"/', $html) ?: [], 1);
+        $alertWith = fn (string $title) => collect($alerts)->first(fn (string $alert) => str_contains($alert, $title));
+
+        expect($alertWith('Negative cash balance'))->not->toContain('Hide this alert')
+            ->and($alertWith('Expires in 3 days'))->toContain('Hide this alert');
     });
 
     it('lists data-quality alerts with links', function () {

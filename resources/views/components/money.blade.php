@@ -14,6 +14,12 @@
         $amount->isNegative() => 'negative',
         default => 'positive',
     };
+    $arrow = $tone === 'profit' ? ['positive' => '▲', 'negative' => '▼'][$state] ?? null : null;
+    $text = match (true) {
+        $amount === null => '—',
+        $tone === 'profit' && $state === 'positive' => '+'.$amount->format(),
+        default => $amount->format(),
+    };
 @endphp
 
 <span {{ $attributes->class([
@@ -21,4 +27,4 @@
     'text-zinc-500 dark:text-zinc-400' => $state === 'missing' || ($state === 'zero' && $tone !== 'plain'),
     'text-red-700 dark:text-red-400' => $state === 'negative' && $tone !== 'plain',
     'text-green-700 dark:text-green-400' => $state === 'positive' && $tone === 'profit',
-]) }}>@if ($state === 'missing')—@else @if ($tone === 'profit' && $state !== 'zero')<span aria-hidden="true" class="me-0.5 text-[0.7em]">{{ $state === 'positive' ? '▲' : '▼' }}</span>@endif{{ $tone === 'profit' && $state === 'positive' ? '+' : '' }}{{ $amount->format() }}@endif</span>
+]) }}>@if ($arrow)<span aria-hidden="true" class="me-0.5 text-[0.7em]">{{ $arrow }}</span>@endif{{ $text }}</span>

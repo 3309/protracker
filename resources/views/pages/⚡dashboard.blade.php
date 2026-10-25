@@ -2,6 +2,7 @@
 
 use App\Actions\Cash\BuildCashLedger;
 use App\Actions\Wheel\BuildWheelCycles;
+use App\Enums\Broker;
 use App\Enums\OpeningStatus;
 use App\Enums\PositionOrigin;
 use App\Livewire\ReportPage;
@@ -175,7 +176,30 @@ new #[Title('Dashboard')] class extends ReportPage
     }
 
     /**
-     * @return list<array{message: string, url: string}>
+     * Cash today for all the accounts shown, and per broker (only brokers
+     * that have an account). These are the per-account ledger totals added up.
+     *
+     * @return array{total: Money, brokers: array<string, array{label: string, cash: Money}>}
+     */
+    #[Computed]
+    public function cashTotals(): array
+    {
+        $brokers = [];
+
+        foreach (collect($this->cash)->sortBy(fn (array $row) => array_search($row['account']->broker, Broker::cases(), true)) as $row) {
+            $broker = $row['account']->broker;
+            $brokers[$broker->value] ??= ['label' => $broker->label(), 'cash' => Money::zero()];
+            $brokers[$broker->value]['cash'] = $brokers[$broker->value]['cash']->plus($row['total']);
+        }
+
+        return [
+            'total' => $this->cash->reduce(fn (Money $total, array $row) => $total->plus($row['total']), Money::zero()),
+            'brokers' => $brokers,
+        ];
+    }
+
+    /**
+     * @return list<array{level: string, title: string, message: string, url: string}>  level: critical, warning or info
      */
     #[Computed]
     public function alerts(): array
@@ -194,231 +218,292 @@ new #[Title('Dashboard')] class extends ReportPage
 };
 ?>
 
-<div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-semibold">Dashboard</h1>
-
-    <div class="card flex flex-col gap-2">
-        <p>
+<div class="flex flex-col gap-8">
+    <div class="flex flex-col gap-1">
+        <h1 class="page-title">Dashboard</h1>
+        <p class="text-sm text-zinc-600 dark:text-zinc-400">
             You have <strong>{{ $this->activeAccounts->count() }}</strong> active {{ Str::plural('account', $this->activeAccounts->count()) }}.
             Reporting starts on <strong>{{ $this->settings->reporting_start_date->format('F j, Y') }}</strong>.
-        </p>
-
-        @if ($this->activeAccounts->isEmpty())
-            <p>
-                Start by <a href="{{ route('accounts.create') }}" class="underline underline-offset-4">adding your first brokerage account</a>.
-            </p>
-        @else
-            <p>
+            @if ($this->activeAccounts->isNotEmpty())
                 Opening balances: <strong>{{ $this->completedOpeningCount }} of {{ $this->activeAccounts->count() }}</strong>
                 {{ Str::plural('account', $this->activeAccounts->count()) }} complete.
                 @if ($this->completedOpeningCount < $this->activeAccounts->count())
-                    <a href="{{ route('opening-balances.index') }}" class="underline underline-offset-4" wire:navigate>Continue setting up opening balances</a>.
+                    <a href="{{ route('opening-balances.index') }}" class="link" wire:navigate>Continue setting up opening balances</a>.
                 @endif
-            </p>
-        @endif
+            @endif
+        </p>
     </div>
+
+    @if ($this->activeAccounts->isEmpty())
+        <x-alert level="info" title="Welcome">
+            Start by <a href="{{ route('accounts.create') }}" class="link" wire:navigate>adding your first brokerage account</a>.
+        </x-alert>
+    @endif
 
     @include('partials.report-filters')
 
-    {{-- Data-quality alerts --}}
-    <section class="card flex flex-col gap-2">
-        <h2 class="text-lg font-semibold">Needs attention</h2>
+    {{-- Alerts: critical first. Hiding a warning only hides it in this browser tab. --}}
+    <section class="flex flex-col gap-3" aria-labelledby="alerts-heading">
+        <div class="flex flex-wrap items-center gap-2">
+            <h2 id="alerts-heading" class="section-title">Needs attention</h2>
+            @php($alertCounts = collect($this->alerts)->countBy('level'))
+            @if ($alertCounts->get('critical'))
+                <x-badge tone="red">{{ $alertCounts->get('critical') }} critical</x-badge>
+            @endif
+            @if ($alertCounts->get('warning'))
+                <x-badge tone="amber">{{ $alertCounts->get('warning') }} {{ Str::plural('warning', $alertCounts->get('warning')) }}</x-badge>
+            @endif
+            @if ($alertCounts->get('info'))
+                <x-badge tone="blue">{{ $alertCounts->get('info') }} to fill in</x-badge>
+            @endif
+        </div>
         @if ($this->alerts === [])
-            <p class="text-sm text-zinc-600 dark:text-zinc-400">Nothing needs attention.</p>
+            <x-alert level="success">Nothing needs attention.</x-alert>
         @else
-            <ul class="flex flex-col gap-1 text-sm">
+            <div class="flex flex-col gap-2">
                 @foreach ($this->alerts as $alert)
-                    <li wire:key="alert-{{ $loop->index }}">
-                        <a href="{{ $alert['url'] }}" class="text-amber-800 underline underline-offset-4 dark:text-amber-300" wire:navigate>{{ $alert['message'] }}</a>
-                    </li>
+                    <x-alert
+                        :level="$alert['level']"
+                        :title="$alert['title']"
+                        :dismiss-key="$alert['level'] === 'critical' ? null : md5($alert['level'].$alert['message'])"
+                        wire:key="alert-{{ md5($alert['message']) }}"
+                    >
+                        <a href="{{ $alert['url'] }}" class="underline-offset-4 hover:underline" wire:navigate>{{ $alert['message'] }}</a>
+                    </x-alert>
                 @endforeach
-            </ul>
+            </div>
         @endif
+    </section>
+
+    {{-- Cash today --}}
+    <section class="flex flex-col gap-3">
+        <h2 class="section-title">Cash today</h2>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <x-stat-card label="Total cash" icon="cash" :href="route('cash.index')" hint="All accounts shown, from the cash ledger"
+                :warning="$this->cashTotals['total']->isNegative() ? 'Negative cash balance' : null">
+                <x-money :amount="$this->cashTotals['total']" tone="balance" />
+            </x-stat-card>
+            @foreach ($this->cashTotals['brokers'] as $brokerValue => $brokerCash)
+                <x-stat-card :label="$brokerCash['label'].' cash'" icon="cash" :href="route('cash.index', ['broker' => $brokerValue])"
+                    :warning="$brokerCash['cash']->isNegative() ? 'Negative cash balance' : null" wire:key="broker-cash-{{ $brokerValue }}">
+                    <x-money :amount="$brokerCash['cash']" tone="balance" />
+                </x-stat-card>
+            @endforeach
+        </div>
+    </section>
+
+    {{-- Open positions --}}
+    <section class="flex flex-col gap-3">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="section-title">
+                Open positions
+                <x-tip text="Unrealized P/L is the gain or loss on positions you still hold, if you closed them at the prices you entered. It is not money received yet." />
+            </h2>
+            <a href="{{ route('prices.index') }}" class="link text-sm" wire:navigate>Enter prices</a>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <x-stat-card label="Stock market value" icon="portfolio" :href="route('positions')"
+                :hint="$this->open->stocksNeedingPrices() > 0 ? $this->open->stocksNeedingPrices().' '.Str::plural('stock', $this->open->stocksNeedingPrices()).' need a price and are left out' : 'From prices you entered'">
+                <x-money :amount="$this->open->stockMarketValueTotal()" tone="plain" />
+            </x-stat-card>
+            <x-stat-card label="Stock unrealized P/L" icon="portfolio" :href="route('positions')"
+                :hint="$this->open->stocksNeedingPrices() > 0 ? 'Stocks without a price are left out' : 'Market value minus cost basis'">
+                <x-money :amount="$this->open->stockUnrealizedTotal()" />
+            </x-stat-card>
+            <x-stat-card label="Options unrealized P/L" icon="options" :href="route('options.index')"
+                :hint="$this->open->optionsNeedingPrices() > 0 ? $this->open->optionsNeedingPrices().' '.Str::plural('option', $this->open->optionsNeedingPrices()).' need a price and are left out' : 'Net of opening fees, before closing fees'">
+                <x-money :amount="$this->open->optionUnrealizedTotal()" />
+            </x-stat-card>
+            @php($expiringSoon = $this->open->options->filter(fn (array $option) => $option['daysToExpiry'] <= App\Support\DataQualityAlerts::EXPIRING_SOON_DAYS)->count())
+            <x-stat-card label="Open option positions" icon="options" :href="route('options.index')"
+                :hint="$this->open->options->sum('openContracts').' '.Str::plural('contract', $this->open->options->sum('openContracts')).' open'.($expiringSoon > 0 ? ' · '.$expiringSoon.' expiring within 7 days or past' : '')">
+                {{ $this->open->options->count() }}
+            </x-stat-card>
+        </div>
     </section>
 
     @if ($this->realized !== null)
         {{-- Realized P/L --}}
         <section class="flex flex-col gap-3">
-            <h2 class="text-lg font-semibold">Realized P/L · {{ $this->reportingPeriod?->label() }}</h2>
+            <h2 class="section-title">
+                Realized P/L · {{ $this->reportingPeriod?->label() }}
+                <x-tip text="Realized P/L is the gain or loss on trades that are closed: sold shares, and options bought back, sold, expired or assigned. Fees are taken off." />
+            </h2>
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div class="card">
-                    <div class="text-sm text-zinc-500 dark:text-zinc-400">Stocks · net</div>
-                    <div class="text-xl font-semibold tabular-nums">{{ $this->realized->stockTotals()['net']->format() }}</div>
-                </div>
-                <div class="card">
-                    <div class="text-sm text-zinc-500 dark:text-zinc-400">Options · net of fees</div>
-                    <div class="text-xl font-semibold tabular-nums">{{ $this->realized->optionTotals()['net']->format() }}</div>
-                </div>
-                <div class="card">
-                    <div class="text-sm text-zinc-500 dark:text-zinc-400">Dividends received</div>
-                    <div class="text-xl font-semibold tabular-nums">{{ $this->realized->dividendTotal()->format() }}</div>
-                </div>
-                <div class="card">
-                    <div class="text-sm text-zinc-500 dark:text-zinc-400">Combined net</div>
-                    <div class="text-xl font-semibold tabular-nums">{{ $this->realized->combinedNet()->format() }}</div>
-                </div>
+                <x-stat-card label="Stocks realized P/L" icon="portfolio" :href="route('realized.index')" hint="Net of fees">
+                    <x-money :amount="$this->realized->stockTotals()['net']" />
+                </x-stat-card>
+                <x-stat-card label="Options realized P/L" icon="options" :href="route('realized.index')" hint="Net of fees">
+                    <x-money :amount="$this->realized->optionTotals()['net']" />
+                </x-stat-card>
+                <x-stat-card label="Dividend income" icon="cash" :href="route('dividends.index')" hint="Confirmed dividends">
+                    <x-money :amount="$this->realized->dividendTotal()" />
+                </x-stat-card>
+                <x-stat-card label="Total realized P/L" icon="report" :href="route('realized.index')" hint="Stocks + options + dividends">
+                    <x-money :amount="$this->realized->combinedNet()" />
+                </x-stat-card>
             </div>
         </section>
     @endif
 
-    {{-- Open positions and unrealized P/L --}}
-    <section class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 class="text-lg font-semibold">Open positions · unrealized P/L</h2>
-            <a href="{{ route('prices.index') }}" class="text-sm underline underline-offset-4" wire:navigate>Enter prices</a>
-        </div>
-        <p class="text-sm text-zinc-600 dark:text-zinc-400">
-            From manually entered prices, not live quotes. Positions without a price are left out of the totals.
-            Stocks: unrealized {{ $this->open->stockUnrealizedTotal()->format() }}{{ $this->open->stocksNeedingPrices() > 0 ? ' ('.$this->open->stocksNeedingPrices().' need a price)' : '' }}.
-            Options (net of opening fees, before any closing fee): unrealized {{ $this->open->optionUnrealizedTotal()->format() }}{{ $this->open->optionsNeedingPrices() > 0 ? ' ('.$this->open->optionsNeedingPrices().' need a price)' : '' }}.
-        </p>
-
-        @if ($this->open->stocks->isNotEmpty())
+    {{-- Open positions in detail --}}
+    @if ($this->open->stocks->isNotEmpty())
+        <section class="flex flex-col gap-3">
+            <h2 class="section-title">Stock holdings</h2>
             <div class="card overflow-x-auto p-0">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 font-medium">Account</th>
-                            <th class="px-4 py-3 font-medium">Ticker</th>
-                            <th class="px-4 py-3 text-right font-medium">Shares</th>
-                            <th class="px-4 py-3 text-right font-medium">Cost basis</th>
-                            <th class="px-4 py-3 text-right font-medium">Price</th>
-                            <th class="px-4 py-3 text-right font-medium">Market value</th>
-                            <th class="px-4 py-3 text-right font-medium">Unrealized</th>
+                            <th>Account</th>
+                            <th>Ticker</th>
+                            <th class="text-right">Shares</th>
+                            <th class="text-right">Cost basis <x-tip text="What you paid for the shares still held, including purchase fees." /></th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">Market value</th>
+                            <th class="text-right">Unrealized</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->open->stocks as $stock)
                             <tr wire:key="open-stock-{{ $stock['accountId'] }}-{{ $stock['ticker'] }}">
-                                <td class="px-4 py-2">{{ $stock['accountName'] }}</td>
-                                <td class="px-4 py-2 font-medium">{{ $stock['ticker'] }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $stock['shares']->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $stock['cost']->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">
+                                <td>{{ $stock['accountName'] }}</td>
+                                <td class="font-semibold">{{ $stock['ticker'] }}</td>
+                                <td class="num">{{ $stock['shares']->format() }}</td>
+                                <td class="num"><x-money :amount="$stock['cost']" tone="plain" /></td>
+                                <td class="num">
                                     @if ($stock['price'])
                                         {{ $stock['price']->price->format() }}
                                         <span class="block text-xs {{ $stock['stale'] ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-500' }}">
                                             {{ $stock['stale'] ? 'Stale · ' : '' }}{{ $stock['price']->as_of->timezone($this->prices->displayTimezone())->format('M j, g:i A') }}
                                         </span>
                                     @else
-                                        <span class="text-amber-700 dark:text-amber-400">Price needed</span>
+                                        <x-badge tone="amber">Price needed</x-badge>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $stock['marketValue']?->format() ?? '—' }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $stock['unrealized']?->format() ?? '—' }}</td>
+                                <td class="num"><x-money :amount="$stock['marketValue']" tone="plain" /></td>
+                                <td class="num"><x-money :amount="$stock['unrealized']" /></td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
-        @endif
+        </section>
+    @endif
 
-        @if ($this->open->options->isNotEmpty())
+    @if ($this->open->options->isNotEmpty())
+        <section class="flex flex-col gap-3">
+            <h2 class="section-title">Open options <span class="text-sm font-normal text-zinc-500">· upcoming expirations first</span></h2>
             <div class="card overflow-x-auto p-0">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 font-medium">Option (upcoming expirations first)</th>
-                            <th class="px-4 py-3 text-right font-medium">Days left</th>
-                            <th class="px-4 py-3 text-right font-medium">Open</th>
-                            <th class="px-4 py-3 text-right font-medium">Premium</th>
-                            <th class="px-4 py-3 font-medium">Underlying</th>
-                            <th class="px-4 py-3 text-right font-medium">Option price</th>
-                            <th class="px-4 py-3 text-right font-medium">Unrealized</th>
+                            <th>Option</th>
+                            <th class="text-right">Days left</th>
+                            <th class="text-right">Open</th>
+                            <th class="text-right">Premium</th>
+                            <th>Underlying</th>
+                            <th class="text-right">Option price</th>
+                            <th class="text-right">Unrealized</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->open->options as $option)
                             <tr wire:key="open-option-{{ $option['position']->id }}">
-                                <td class="px-4 py-2">
-                                    <a href="{{ route('options.show', $option['position']) }}" class="font-medium underline underline-offset-4" wire:navigate>{{ $option['position']->description() }}</a>
+                                <td>
+                                    <a href="{{ route('options.show', $option['position']) }}" class="link" wire:navigate>{{ $option['position']->description() }}</a>
                                     <span class="block text-xs text-zinc-500">{{ $this->accountNames[$option['position']->account_id] ?? '' }}</span>
                                 </td>
-                                <td class="px-4 py-2 text-right tabular-nums">
+                                <td class="num">
                                     @if ($option['daysToExpiry'] < 0)
-                                        <span class="text-amber-700 dark:text-amber-400">Past expiration</span>
+                                        <x-badge tone="red">Past expiration</x-badge>
+                                    @elseif ($option['daysToExpiry'] === 0)
+                                        <x-badge tone="red">Today</x-badge>
+                                    @elseif ($option['daysToExpiry'] <= App\Support\DataQualityAlerts::EXPIRING_SOON_DAYS)
+                                        <x-badge tone="amber">{{ $option['daysToExpiry'] }}</x-badge>
                                     @else
                                         {{ $option['daysToExpiry'] }}
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $option['openContracts'] }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">
-                                    {{ $option['openPremium']->format() }}
+                                <td class="num">{{ $option['openContracts'] }}</td>
+                                <td class="num">
+                                    <x-money :amount="$option['openPremium']" tone="plain" />
                                     <span class="block text-xs text-zinc-500">{{ $option['position']->isLong() ? 'paid' : 'received' }}</span>
                                 </td>
-                                <td class="px-4 py-2">
+                                <td>
                                     @if ($option['underlyingPrice'])
                                         {{ $option['underlyingPrice']->price->format() }} · {{ $option['moneyness'] }}{{ $option['underlyingStale'] ? ' (stale price)' : '' }}
                                     @else
                                         <span class="text-zinc-500">No underlying price</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-right tabular-nums">
+                                <td class="num">
                                     @if ($option['price'])
                                         {{ $option['price']->price->format() }}{{ $option['stale'] ? ' (stale)' : '' }}
                                     @else
-                                        <span class="text-amber-700 dark:text-amber-400">Price needed</span>
+                                        <x-badge tone="amber">Price needed</x-badge>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $option['unrealized']?->format() ?? '—' }}</td>
+                                <td class="num"><x-money :amount="$option['unrealized']" /></td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
-        @endif
+        </section>
+    @endif
 
-        @if ($this->open->stocks->isEmpty() && $this->open->options->isEmpty())
-            <div class="card text-sm">No open positions.</div>
-        @endif
-    </section>
+    @if ($this->open->stocks->isEmpty() && $this->open->options->isEmpty())
+        <x-empty-state>No open positions.</x-empty-state>
+    @endif
 
     {{-- Wheel cycles --}}
     <section class="flex flex-col gap-3">
-        <h2 class="text-lg font-semibold">Wheel cycles</h2>
+        <h2 class="section-title">
+            Wheel cycles
+            <x-tip text="A cycle starts when a put is sold with nothing held (or a call is sold on shares already held) and ends when nothing is held again." />
+        </h2>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">
-            A cycle starts when a put is sold with nothing held (or a call is sold on shares already held) and ends when nothing is held again.
             Capital at risk is a simplified figure: the most tied up in puts and shares during the cycle. Annualized return is an estimate,
             not a forecast or an account return. Open cycles show results to date.
         </p>
 
         @if ($this->cycles->isEmpty())
-            <div class="card text-sm">No wheel cycles in this period.</div>
+            <x-empty-state>No wheel cycles in this period.</x-empty-state>
         @else
             <div class="card overflow-x-auto p-0">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 font-medium">Ticker</th>
-                            <th class="px-4 py-3 font-medium">Account</th>
-                            <th class="px-4 py-3 font-medium">Dates</th>
-                            <th class="px-4 py-3 text-right font-medium">Net profit</th>
-                            <th class="px-4 py-3 text-right font-medium">Capital at risk</th>
-                            <th class="px-4 py-3 text-right font-medium">Raw return</th>
-                            <th class="px-4 py-3 text-right font-medium">Annualized (estimate)</th>
+                            <th>Ticker</th>
+                            <th>Account</th>
+                            <th>Dates</th>
+                            <th class="text-right">Net profit</th>
+                            <th class="text-right">Capital at risk</th>
+                            <th class="text-right">Raw return</th>
+                            <th class="text-right">Annualized (estimate)</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->cycles as $cycle)
                             <tr wire:key="cycle-{{ $cycle->accountId }}-{{ $cycle->ticker }}-{{ $cycle->start->format('Ymd') }}">
-                                <td class="px-4 py-2 font-medium">
+                                <td class="font-semibold">
                                     {{ $cycle->ticker }}
-                                    <span class="block text-xs text-zinc-500">{{ $cycle->kind->label() }} · {{ $cycle->optionLegs }} option {{ Str::plural('leg', $cycle->optionLegs) }}</span>
+                                    <span class="block text-xs font-normal text-zinc-500">{{ $cycle->kind->label() }} · {{ $cycle->optionLegs }} option {{ Str::plural('leg', $cycle->optionLegs) }}</span>
                                 </td>
-                                <td class="px-4 py-2">{{ $this->accountNames[$cycle->accountId] ?? '' }}</td>
-                                <td class="px-4 py-2">
+                                <td>{{ $this->accountNames[$cycle->accountId] ?? '' }}</td>
+                                <td>
                                     {{ $cycle->start->format('M j, Y') }} – {{ $cycle->end?->format('M j, Y') ?? 'open' }}
                                     <span class="block text-xs text-zinc-500">{{ $cycle->days($this->todayDate) }} days</span>
                                 </td>
-                                <td class="px-4 py-2 text-right tabular-nums">
-                                    {{ $cycle->netProfit()->format() }}
+                                <td class="num">
+                                    <x-money :amount="$cycle->netProfit()" />
                                     @if ($cycle->isOpen())
                                         <span class="block text-xs text-zinc-500">to date</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $cycle->capitalAtRisk->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ WheelCycle::formatPercent($cycle->rawReturnPercent(), 2) }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ WheelCycle::formatPercent($cycle->annualizedReturnPercent($this->todayDate), 1) }}</td>
+                                <td class="num"><x-money :amount="$cycle->capitalAtRisk" tone="plain" /></td>
+                                <td class="num">{{ WheelCycle::formatPercent($cycle->rawReturnPercent(), 2) }}</td>
+                                <td class="num">{{ WheelCycle::formatPercent($cycle->annualizedReturnPercent($this->todayDate), 1) }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -430,25 +515,25 @@ new #[Title('Dashboard')] class extends ReportPage
     @if ($this->realized !== null)
         {{-- Premium per month --}}
         <section class="flex flex-col gap-3">
-            <h2 class="text-lg font-semibold">Option premium by month</h2>
+            <h2 class="section-title">Option premium by month</h2>
             @if ($this->premiumByMonth->isEmpty())
-                <div class="card text-sm">No option activity in this period.</div>
+                <x-empty-state>No option activity in this period.</x-empty-state>
             @else
                 <div class="card overflow-x-auto p-0">
-                    <table class="w-full text-left text-sm">
-                        <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <th class="px-4 py-3 font-medium">Month</th>
-                                <th class="px-4 py-3 text-right font-medium">Premium collected (sold, gross)</th>
-                                <th class="px-4 py-3 text-right font-medium">Realized option P/L (closed, net)</th>
+                                <th>Month</th>
+                                <th class="text-right">Premium collected (sold, gross)</th>
+                                <th class="text-right">Realized option P/L (closed, net)</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <tbody>
                             @foreach ($this->premiumByMonth as $month => $amounts)
                                 <tr wire:key="premium-{{ $month }}">
-                                    <td class="px-4 py-2">{{ CarbonImmutable::createFromFormat('!Y-m', $month)?->format('F Y') }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $amounts['premium']->format() }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $amounts['realized']->format() }}</td>
+                                    <td>{{ CarbonImmutable::createFromFormat('!Y-m', $month)?->format('F Y') }}</td>
+                                    <td class="num"><x-money :amount="$amounts['premium']" tone="plain" /></td>
+                                    <td class="num"><x-money :amount="$amounts['realized']" /></td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -462,13 +547,16 @@ new #[Title('Dashboard')] class extends ReportPage
         {{-- Fees --}}
         <section class="flex flex-col gap-3">
             <div class="flex items-center justify-between gap-4">
-                <h2 class="text-lg font-semibold">Fees paid · {{ $this->fees->total()->format() }}</h2>
-                <button type="button" wire:click="exportFees" class="btn-secondary">Download CSV</button>
+                <h2 class="section-title">Fees paid · {{ $this->fees->total()->format() }}</h2>
+                <button type="button" wire:click="exportFees" class="btn-secondary">
+                    <x-icon name="download" class="size-4" />
+                    Download CSV
+                </button>
             </div>
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 @foreach (['By month' => $this->fees->byMonth(), 'By type' => $this->fees->byType(), 'By ticker' => $this->fees->byTicker(), 'By account' => $this->fees->byAccount()] as $heading => $groups)
-                    <div class="card flex flex-col gap-2 text-sm" wire:key="fees-{{ $heading }}">
-                        <h3 class="font-medium">{{ $heading }}</h3>
+                    <div class="card flex flex-col gap-2 p-5 text-sm" wire:key="fees-{{ $heading }}">
+                        <h3 class="font-semibold">{{ $heading }}</h3>
                         @forelse ($groups as $label => $amount)
                             <div class="flex justify-between gap-4">
                                 <span>{{ $heading === 'By month' ? CarbonImmutable::createFromFormat('!Y-m', $label)?->format('M Y') : $label }}</span>
@@ -485,33 +573,36 @@ new #[Title('Dashboard')] class extends ReportPage
 
     {{-- Exposure --}}
     <section class="flex flex-col gap-3">
-        <h2 class="text-lg font-semibold">Open exposure</h2>
+        <h2 class="section-title">
+            Open exposure
+            <x-tip text="What you hold and have open per ticker. Cash needed if puts assigned: what you would pay if every sold put were assigned at its strike." />
+        </h2>
         @if ($this->open->exposure()->isEmpty())
-            <div class="card text-sm">Nothing held or open.</div>
+            <x-empty-state>Nothing held or open.</x-empty-state>
         @else
             <div class="card overflow-x-auto p-0">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 font-medium">Account</th>
-                            <th class="px-4 py-3 font-medium">Ticker</th>
-                            <th class="px-4 py-3 text-right font-medium">Shares</th>
-                            <th class="px-4 py-3 text-right font-medium">Market value</th>
-                            <th class="px-4 py-3 text-right font-medium">Open puts</th>
-                            <th class="px-4 py-3 text-right font-medium">Open calls</th>
-                            <th class="px-4 py-3 text-right font-medium">Cash needed if puts assigned</th>
+                            <th>Account</th>
+                            <th>Ticker</th>
+                            <th class="text-right">Shares</th>
+                            <th class="text-right">Market value</th>
+                            <th class="text-right">Open puts</th>
+                            <th class="text-right">Open calls</th>
+                            <th class="text-right">Cash needed if puts assigned</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->open->exposure() as $key => $row)
                             <tr wire:key="exposure-{{ $key }}">
-                                <td class="px-4 py-2">{{ $row['accountName'] }}</td>
-                                <td class="px-4 py-2 font-medium">{{ $row['ticker'] }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $row['shares']->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $row['shares']->isZero() ? '—' : ($row['marketValue']?->format() ?? 'Price needed') }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $row['puts'] }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $row['calls'] }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $row['putObligation']->format() }}</td>
+                                <td>{{ $row['accountName'] }}</td>
+                                <td class="font-semibold">{{ $row['ticker'] }}</td>
+                                <td class="num">{{ $row['shares']->format() }}</td>
+                                <td class="num">{{ $row['shares']->isZero() ? '—' : ($row['marketValue']?->format() ?? 'Price needed') }}</td>
+                                <td class="num">{{ $row['puts'] }}</td>
+                                <td class="num">{{ $row['calls'] }}</td>
+                                <td class="num">{{ $row['putObligation']->format() }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -520,43 +611,51 @@ new #[Title('Dashboard')] class extends ReportPage
         @endif
     </section>
 
-    {{-- Cash --}}
+    {{-- Cash by account --}}
     <section class="flex flex-col gap-3">
-        <h2 class="text-lg font-semibold">Cash</h2>
+        <h2 class="section-title">
+            Cash
+            <x-tip text="Cash today includes trades that have not settled yet. Settled cash only counts trades whose settlement date has passed." />
+        </h2>
         @if ($this->cash->isEmpty())
-            <div class="card text-sm">No accounts.</div>
+            <x-empty-state>No accounts.</x-empty-state>
         @else
             <div class="card overflow-x-auto p-0">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 font-medium">Account</th>
-                            <th class="px-4 py-3 text-right font-medium">Cash today</th>
-                            <th class="px-4 py-3 text-right font-medium">Settled</th>
-                            <th class="px-4 py-3 font-medium">Latest broker balance</th>
-                            <th class="px-4 py-3 text-right font-medium">Difference</th>
+                            <th>Account</th>
+                            <th class="text-right">Cash today</th>
+                            <th class="text-right">Settled</th>
+                            <th>Latest broker balance</th>
+                            <th class="text-right">Difference</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody>
                         @foreach ($this->cash as $row)
                             <tr wire:key="cash-{{ $row['account']->id }}">
-                                <td class="px-4 py-2">{{ $row['account']->displayName() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $row['total']->format() }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums">{{ $row['settled']->format() }}</td>
-                                <td class="px-4 py-2">
+                                <td>
+                                    {{ $row['account']->displayName() }}
+                                    @if ($row['total']->isNegative())
+                                        <span class="mt-1 block"><x-badge tone="red"><x-icon name="warning" class="size-3.5" />Negative cash balance</x-badge></span>
+                                    @endif
+                                </td>
+                                <td class="num"><x-money :amount="$row['total']" tone="balance" /></td>
+                                <td class="num"><x-money :amount="$row['settled']" tone="balance" /></td>
+                                <td>
                                     @if ($row['broker'])
                                         {{ $row['broker']->total_cash->format() }} on {{ $row['broker']->as_of_date->format('M j, Y') }}
                                     @else
-                                        <a href="{{ route('cash.reconciliation', ['account' => $row['account']->id]) }}" class="underline underline-offset-4" wire:navigate>None entered</a>
+                                        <a href="{{ route('cash.reconciliation', ['account' => $row['account']->id]) }}" class="link" wire:navigate>None entered</a>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-right tabular-nums">
+                                <td class="num">
                                     @if ($row['difference'] === null)
                                         —
                                     @elseif ($row['difference']->isZero())
-                                        Matches
+                                        <x-badge tone="green">Matches</x-badge>
                                     @else
-                                        <span class="text-amber-700 dark:text-amber-400">{{ $row['difference']->format() }}</span>
+                                        <x-badge tone="amber">Differs by {{ $row['difference']->format() }}</x-badge>
                                     @endif
                                 </td>
                             </tr>
@@ -567,7 +666,7 @@ new #[Title('Dashboard')] class extends ReportPage
         @endif
     </section>
 
-    <div class="card text-sm text-zinc-600 dark:text-zinc-400">
+    <p class="text-xs text-zinc-500 dark:text-zinc-400">
         This is a tracking tool, not tax software or investment advice. Prices are entered by hand and are not live quotes.
-    </div>
+    </p>
 </div>
