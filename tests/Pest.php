@@ -1,8 +1,12 @@
 <?php
 
+use App\Actions\Options\SaveOptionTrade;
 use App\Actions\Stocks\SaveStockTrade;
+use App\Enums\OptionType;
 use App\Enums\TradeSide;
 use App\Models\Account;
+use App\Models\OptionEvent;
+use App\Models\OptionPosition;
 use App\Models\StockTrade;
 use App\Support\MarketCalendar;
 use App\Support\Money;
@@ -66,6 +70,40 @@ function recordStockTrade(Account $account, TradeSide $side, string $ticker, str
         'trade_date' => $tradeDate,
         'settlement_date' => MarketCalendar::stockSettlementDate(CarbonImmutable::parse($tradeDate)),
         'shares' => Quantity::fromDecimal($shares),
+        'price_per_share' => UnitPrice::fromDecimal($price),
+        'fees' => Money::fromDecimal($fee),
+    ]);
+}
+
+/**
+ * Record a sell-to-open option trade through the real options engine.
+ */
+function recordSellToOpen(Account $account, OptionType $type, string $ticker, string $strike, string $expiresOn, string $openedOn, int $contracts, string $premium, string $fee, int $multiplier = 100): OptionPosition
+{
+    return app(SaveOptionTrade::class)->open([
+        'account_id' => $account->id,
+        'underlying' => $ticker,
+        'option_type' => $type,
+        'strike' => UnitPrice::fromDecimal($strike),
+        'expires_on' => $expiresOn,
+        'opened_on' => $openedOn,
+        'opening_settlement_date' => MarketCalendar::optionSettlementDate(CarbonImmutable::parse($openedOn)),
+        'contracts' => $contracts,
+        'multiplier' => $multiplier,
+        'premium_per_share' => UnitPrice::fromDecimal($premium),
+        'opening_fees' => Money::fromDecimal($fee),
+    ]);
+}
+
+/**
+ * Buy back contracts of an option position through the real options engine.
+ */
+function recordBuyToClose(OptionPosition $position, string $date, int $contracts, string $price, string $fee): OptionEvent
+{
+    return app(SaveOptionTrade::class)->buyToClose($position, [
+        'event_date' => $date,
+        'settlement_date' => MarketCalendar::optionSettlementDate(CarbonImmutable::parse($date)),
+        'contracts' => $contracts,
         'price_per_share' => UnitPrice::fromDecimal($price),
         'fees' => Money::fromDecimal($fee),
     ]);

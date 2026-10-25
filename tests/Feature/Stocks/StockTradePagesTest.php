@@ -31,7 +31,7 @@ it('sends guests to the login page', function (string $url) {
     $this->app['auth']->logout();
 
     $this->get($url)->assertRedirect(route('login'));
-})->with(['/stock-trades', '/stock-trades/create', '/positions', '/realized/stocks']);
+})->with(['/stock-trades', '/stock-trades/create', '/positions', '/realized', '/options', '/options/create']);
 
 describe('create', function () {
     it('records a buy with the default fee and a calculated settlement date', function () {

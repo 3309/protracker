@@ -86,11 +86,13 @@ abstract class ReportPage extends Component
     }
 
     /**
-     * Today's date in the display time zone.
+     * Today's calendar date as seen in the display time zone, as a plain date
+     * (midnight in the app time zone) so it compares correctly with trade,
+     * expiration and other calendar dates.
      */
     protected function today(): CarbonImmutable
     {
-        return CarbonImmutable::now($this->displayTimezone())->startOfDay();
+        return CarbonImmutable::parse(CarbonImmutable::now($this->displayTimezone())->format('Y-m-d'));
     }
 
     /**

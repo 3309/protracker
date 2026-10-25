@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Forms;
 
+use App\Actions\Options\SaveOptionTrade;
 use App\Enums\OpeningBalanceSource;
 use App\Enums\OptionSide;
 use App\Enums\OptionType;
 use App\Enums\PositionOrigin;
+use App\Exceptions\OptionPositionException;
 use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\Account;
 use App\Models\OptionPosition;
@@ -131,20 +133,34 @@ class OptionPositionForm extends Form
         ]);
     }
 
-    public function update(): void
+    /**
+     * Save a correction. Closes already recorded are rechecked and their
+     * profit recalculated. Returns false, with an error, when the correction
+     * would conflict with them.
+     */
+    public function update(): bool
     {
         $this->validate();
 
-        if ($this->optionPosition === null) {
-            return;
+        $position = $this->optionPosition;
+
+        if ($position === null) {
+            return false;
         }
 
-        $this->optionPosition
-            ->withAuditReason($this->reason)
-            ->update($this->positionAttributes($this->optionPosition->account));
+        try {
+            app(SaveOptionTrade::class)->updatePosition($position, $this->positionAttributes($position->account), $this->reason);
+        } catch (OptionPositionException $exception) {
+            $position->refresh();
+            $this->addError($exception->field === 'event_date' ? 'expires_on' : 'contracts', $exception->getMessage());
 
-        $this->opening_fees = $this->optionPosition->opening_fees->toDecimal();
+            return false;
+        }
+
+        $this->opening_fees = $position->opening_fees->toDecimal();
         $this->reset('reason');
+
+        return true;
     }
 
     /**

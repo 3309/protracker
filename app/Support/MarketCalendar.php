@@ -20,9 +20,19 @@ final class MarketCalendar
      */
     public const int STOCK_SETTLEMENT_DAYS = 1;
 
+    /**
+     * U.S. listed option trades also settle one business day after the trade date.
+     */
+    public const int OPTION_SETTLEMENT_DAYS = 1;
+
     public static function stockSettlementDate(DateTimeInterface $tradeDate): CarbonImmutable
     {
         return self::addTradingDays($tradeDate, self::STOCK_SETTLEMENT_DAYS);
+    }
+
+    public static function optionSettlementDate(DateTimeInterface $tradeDate): CarbonImmutable
+    {
+        return self::addTradingDays($tradeDate, self::OPTION_SETTLEMENT_DAYS);
     }
 
     /**

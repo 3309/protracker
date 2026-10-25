@@ -23,8 +23,9 @@
                         ['route' => 'accounts.index', 'label' => 'Accounts', 'active' => 'accounts.*'],
                         ['route' => 'opening-balances.index', 'label' => 'Opening balances', 'active' => 'opening-balances.*'],
                         ['route' => 'stock-trades.index', 'label' => 'Stock trades', 'active' => 'stock-trades.*'],
+                        ['route' => 'options.index', 'label' => 'Options', 'active' => 'options.*'],
                         ['route' => 'positions', 'label' => 'Positions', 'active' => 'positions'],
-                        ['route' => 'realized.stocks', 'label' => 'Realized P/L', 'active' => 'realized.*'],
+                        ['route' => 'realized.index', 'label' => 'Realized P/L', 'active' => 'realized.*'],
                         ['route' => 'settings', 'label' => 'Settings', 'active' => 'settings'],
                         ['route' => 'settings.password', 'label' => 'Password', 'active' => 'settings.password'],
                     ];

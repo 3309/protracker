@@ -22,8 +22,14 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/stock-trades/create', 'pages::stock-trades.create')->name('stock-trades.create');
     Route::livewire('/stock-trades/{stockTrade}/edit', 'pages::stock-trades.edit')->name('stock-trades.edit');
 
+    Route::livewire('/options', 'pages::options.index')->name('options.index');
+    Route::livewire('/options/create', 'pages::options.create')->name('options.create');
+    Route::livewire('/options/{optionPosition}', 'pages::options.show')->name('options.show');
+    Route::livewire('/options/{optionPosition}/edit', 'pages::options.edit')->name('options.edit');
+    Route::livewire('/option-events/{optionEvent}/edit', 'pages::options.events.edit')->name('options.events.edit');
+
     Route::livewire('/positions', 'pages::positions')->name('positions');
-    Route::livewire('/realized/stocks', 'pages::realized.stocks')->name('realized.stocks');
+    Route::livewire('/realized', 'pages::realized.index')->name('realized.index');
 
     Route::livewire('/settings', 'pages::settings.general')->name('settings');
     Route::view('/settings/password', 'settings.password')->name('settings.password');

@@ -1,6 +1,8 @@
 <?php
 
+use App\Actions\Options\SaveOptionTrade;
 use App\Enums\PositionOrigin;
+use App\Exceptions\OptionPositionException;
 use App\Livewire\Forms\OptionPositionForm;
 use App\Models\AuditEntry;
 use App\Models\OptionPosition;
@@ -28,16 +30,20 @@ new #[Title('Edit opening option')] class extends Component
     {
         abort_if($this->optionPosition->isVoided(), 403, 'A voided option cannot be changed.');
 
-        $this->form->update();
+        $saved = $this->form->update();
 
         $this->optionPosition->refresh();
+
+        if (! $saved) {
+            return;
+        }
 
         unset($this->auditEntries);
 
         session()->now('message', 'Option saved.');
     }
 
-    public function void(): void
+    public function void(SaveOptionTrade $saveOptionTrade): void
     {
         abort_if($this->optionPosition->isVoided(), 403, 'This option is already voided.');
 
@@ -46,7 +52,13 @@ new #[Title('Edit opening option')] class extends Component
             ['form.reason.required' => 'Please explain why you are voiding this entry. It is saved in the audit history.'],
         );
 
-        $this->optionPosition->void($this->form->reason);
+        try {
+            $saveOptionTrade->voidPosition($this->optionPosition, $this->form->reason);
+        } catch (OptionPositionException $exception) {
+            $this->addError('form.reason', $exception->getMessage());
+
+            return;
+        }
 
         $this->form->reset('reason');
 
@@ -83,7 +95,10 @@ new #[Title('Edit opening option')] class extends Component
             </h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $optionPosition->account->displayName() }} · Opening balance</p>
         </div>
-        <a href="{{ route('opening-balances.show', $optionPosition->account_id) }}" class="btn-secondary" wire:navigate>Back to opening balances</a>
+        <div class="flex flex-wrap gap-3">
+            <a href="{{ route('options.show', $optionPosition) }}" class="btn-secondary" wire:navigate>Closes and buy to close</a>
+            <a href="{{ route('opening-balances.show', $optionPosition->account_id) }}" class="btn-secondary" wire:navigate>Back to opening balances</a>
+        </div>
     </div>
 
     @if (session('message'))

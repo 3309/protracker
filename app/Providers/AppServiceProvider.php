@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Account;
 use App\Models\AccountOpening;
+use App\Models\OptionEvent;
 use App\Models\OptionPosition;
 use App\Models\Setting;
 use App\Models\StockLot;
@@ -58,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
         Relation::enforceMorphMap([
             'account' => Account::class,
             'account_opening' => AccountOpening::class,
+            'option_event' => OptionEvent::class,
             'option_position' => OptionPosition::class,
             'setting' => Setting::class,
             'stock_lot' => StockLot::class,

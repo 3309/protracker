@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -38,6 +39,8 @@ use Illuminate\Support\Carbon;
  * @property UnitPrice $strike
  * @property CarbonImmutable $expires_on
  * @property CarbonImmutable $opened_on
+ * @property CarbonImmutable|null $opening_settlement_date
+ * @property bool $opening_settlement_date_overridden
  * @property int $contracts
  * @property int $multiplier
  * @property UnitPrice $premium_per_share
@@ -58,6 +61,8 @@ use Illuminate\Support\Carbon;
     'strike',
     'expires_on',
     'opened_on',
+    'opening_settlement_date',
+    'opening_settlement_date_overridden',
     'contracts',
     'multiplier',
     'premium_per_share',
@@ -78,6 +83,7 @@ class OptionPosition extends Model
      */
     protected $attributes = [
         'side' => 'short',
+        'opening_settlement_date_overridden' => false,
         'multiplier' => 100,
         'opening_fees' => 0,
     ];
@@ -95,6 +101,8 @@ class OptionPosition extends Model
             'strike' => UnitPrice::class,
             'expires_on' => CalendarDate::class,
             'opened_on' => CalendarDate::class,
+            'opening_settlement_date' => CalendarDate::class,
+            'opening_settlement_date_overridden' => 'boolean',
             'contracts' => 'integer',
             'multiplier' => 'integer',
             'premium_per_share' => UnitPrice::class,
@@ -123,7 +131,66 @@ class OptionPosition extends Model
     }
 
     /**
-     * The number of shares the open contracts cover (contracts × multiplier).
+     * @return HasMany<OptionEvent, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(OptionEvent::class);
+    }
+
+    /**
+     * Load the number of contracts closed by events that have not been
+     * voided, as the "closed_contracts" attribute.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function withClosedContracts(Builder $query): void
+    {
+        $query->withSum(['events as closed_contracts' => fn (Builder $events) => $events->whereNull('voided_at')], 'contracts');
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function open(Builder $query): void
+    {
+        $query->whereRaw('contracts > (select coalesce(sum(contracts), 0) from option_events where option_events.option_position_id = option_positions.id and option_events.voided_at is null)');
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function closed(Builder $query): void
+    {
+        $query->whereRaw('contracts <= (select coalesce(sum(contracts), 0) from option_events where option_events.option_position_id = option_positions.id and option_events.voided_at is null)');
+    }
+
+    /**
+     * Contracts closed so far, using the loaded "closed_contracts" attribute
+     * when present.
+     */
+    public function closedContracts(): int
+    {
+        return (int) (array_key_exists('closed_contracts', $this->getAttributes())
+            ? $this->getAttribute('closed_contracts')
+            : $this->events()->notVoided()->sum('contracts'));
+    }
+
+    public function openContracts(): int
+    {
+        return $this->contracts - $this->closedContracts();
+    }
+
+    public function isOpen(): bool
+    {
+        return $this->openContracts() > 0;
+    }
+
+    /**
+     * The number of shares the contracts cover (contracts × multiplier).
      */
     public function sharesCovered(): Quantity
     {
