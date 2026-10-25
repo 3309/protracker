@@ -5,9 +5,7 @@ namespace App\Enums;
 /**
  * The layout of an uploaded CSV file.
  *
- * Broker mappings are built only from real sample exports, never guessed:
- * Fidelity is built from a sample activity file; Robinhood is listed but
- * not yet supported.
+ * Broker mappings are built only from real sample exports, never guessed.
  */
 enum ImportFormatType: string
 {
@@ -22,10 +20,5 @@ enum ImportFormatType: string
             self::Fidelity => 'Fidelity activity',
             self::Robinhood => 'Robinhood account activity',
         };
-    }
-
-    public function isSupported(): bool
-    {
-        return $this !== self::Robinhood;
     }
 }

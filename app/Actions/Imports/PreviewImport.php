@@ -11,6 +11,7 @@ use App\Models\ImportBatch;
 use App\Support\Imports\CsvFile;
 use App\Support\Imports\FidelityFormat;
 use App\Support\Imports\ImportFormat;
+use App\Support\Imports\RobinhoodFormat;
 use App\Support\Imports\TemplateFormat;
 use Illuminate\Support\Facades\DB;
 
@@ -79,15 +80,12 @@ class PreviewImport
         });
     }
 
-    /**
-     * @throws ImportFileException
-     */
     private function format(ImportFormatType $formatType): ImportFormat
     {
         return match ($formatType) {
             ImportFormatType::Template => new TemplateFormat,
             ImportFormatType::Fidelity => new FidelityFormat,
-            default => throw new ImportFileException("The {$formatType->label()} format is not available yet: it will be built from a real sample export."),
+            ImportFormatType::Robinhood => new RobinhoodFormat,
         };
     }
 }

@@ -38,10 +38,9 @@ new #[Title('Upload a file')] class extends Component
     {
         $this->validate([
             'account_id' => ['required', Rule::exists('accounts', 'id')->whereNull('archived_at')],
-            'format' => ['required', Rule::in(array_map(fn (ImportFormatType $type) => $type->value, array_filter(ImportFormatType::cases(), fn (ImportFormatType $type) => $type->isSupported())))],
+            'format' => ['required', Rule::enum(ImportFormatType::class)],
             'file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
         ], [
-            'format.in' => 'This format is not available yet. It will be built from a real sample export.',
             'file.mimes' => 'Upload a CSV file.',
             'file.max' => 'The file must be smaller than 2 MB.',
         ], [
@@ -111,9 +110,7 @@ new #[Title('Upload a file')] class extends Component
                 <label for="format" class="form-label">Format</label>
                 <select id="format" wire:model="format" class="form-input">
                     @foreach (ImportFormatType::cases() as $type)
-                        <option value="{{ $type->value }}" @disabled(! $type->isSupported())>
-                            {{ $type->label() }}{{ $type->isSupported() ? '' : ' (needs a sample file — not available yet)' }}
-                        </option>
+                        <option value="{{ $type->value }}">{{ $type->label() }}</option>
                     @endforeach
                 </select>
                 <p class="form-help">
@@ -149,5 +146,18 @@ new #[Title('Upload a file')] class extends Component
             Quantity is shares for stock and contracts for options. Price is per share. A blank fee uses the account default.
             For a dividend, the date is the pay date and ex_date is needed.
         </p>
+    </section>
+
+    <section class="card flex flex-col gap-2 text-sm">
+        <h2 class="text-lg font-semibold">Broker files</h2>
+        <p>
+            <strong>Fidelity activity:</strong> the layout with columns date, symbol, instrumentType, quantity, activityType,
+            unitPrice, currency, fee, amount, subtype and account.
+        </p>
+        <p>
+            <strong>Robinhood account activity:</strong> the CSV account activity report, with columns Activity Date, Process Date,
+            Settle Date, Instrument, Description, Trans Code, Quantity, Price and Amount.
+        </p>
+        <p>Rows of a kind not seen in the sample exports are flagged for review, never guessed.</p>
     </section>
 </div>

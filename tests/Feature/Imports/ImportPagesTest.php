@@ -59,14 +59,14 @@ describe('uploading', function () {
         expect(ImportBatch::count())->toBe(0);
     });
 
-    it('refuses formats not built yet, files that are not CSV, and missing choices', function (string $field, mixed $value) {
+    it('refuses unknown formats, files that are not CSV, and missing choices', function (string $field, mixed $value) {
         $page = Livewire::test('pages::imports.create')
             ->set('account_id', (string) $this->account->id)
             ->set('file', UploadedFile::fake()->createWithContent('activity.csv', "{$this->header}\n"));
 
         $page->set($field, $value)->call('preview')->assertHasErrors($field);
     })->with([
-        'Robinhood before a sample exists' => ['format', 'robinhood'],
+        'a format with no mapping' => ['format', 'schwab'],
         'a PDF' => ['file', fn () => UploadedFile::fake()->create('statement.pdf', 10, 'application/pdf')],
         'no account' => ['account_id', ''],
     ]);

@@ -254,8 +254,3 @@ it('refuses a file without the required columns, or with no rows', function (str
     'empty' => ['', 'The file is empty.'],
     'header only' => ['date,action,symbol,quantity,price,fees,amount,option_type,strike,expiration', 'no rows'],
 ]);
-
-it('does not offer the Robinhood format until it is built from a sample file', function () {
-    expect(fn () => app(PreviewImport::class)->handle($this->account, ImportFormatType::Robinhood, "a,b\n1,2", 'x.csv', null))
-        ->toThrow(ImportFileException::class, 'is not available yet');
-});
