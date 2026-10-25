@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Account;
+use App\Models\Setting;
+use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -37,14 +41,20 @@ class AppServiceProvider extends ServiceProvider
             app()->isProduction(),
         );
 
-        Password::defaults(fn (): ?Password => app()->isProduction()
+        Password::defaults(fn (): Password => app()->isProduction()
             ? Password::min(12)
                 ->mixedCase()
                 ->letters()
                 ->numbers()
                 ->symbols()
                 ->uncompromised()
-            : null,
+            : Password::min(12),
         );
+
+        Relation::enforceMorphMap([
+            'account' => Account::class,
+            'setting' => Setting::class,
+            'user' => User::class,
+        ]);
     }
 }

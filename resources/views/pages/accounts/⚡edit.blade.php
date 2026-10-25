@@ -1,0 +1,150 @@
+<?php
+
+use App\Livewire\Forms\AccountForm;
+use App\Models\Account;
+use App\Models\AuditEntry;
+use App\Models\Setting;
+use Illuminate\Database\Eloquent\Collection;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+
+new #[Title('Edit account')] class extends Component
+{
+    public Account $account;
+
+    public AccountForm $form;
+
+    public function mount(Account $account): void
+    {
+        $this->account = $account;
+        $this->form->setAccount($account);
+    }
+
+    public function save(): void
+    {
+        $this->form->update();
+
+        unset($this->auditEntries);
+
+        session()->now('message', 'Account saved.');
+    }
+
+    public function archive(): void
+    {
+        $this->validateReason();
+
+        $this->account->archive($this->form->reason);
+
+        $this->finishStatusChange('Account archived. Its history is kept and you can restore it at any time.');
+    }
+
+    public function restore(): void
+    {
+        $this->validateReason();
+
+        $this->account->restore($this->form->reason);
+
+        $this->finishStatusChange('Account restored.');
+    }
+
+    /**
+     * @return Collection<int, AuditEntry>
+     */
+    #[Computed]
+    public function auditEntries(): Collection
+    {
+        return $this->account->auditEntries()->with('user')->latest('id')->get();
+    }
+
+    #[Computed]
+    public function displayTimezone(): string
+    {
+        return Setting::current()->display_timezone;
+    }
+
+    private function validateReason(): void
+    {
+        $this->validate(
+            ['form.reason' => ['required', 'string', 'max:1000']],
+            ['form.reason.required' => 'Please explain why you are making this change. It is saved in the audit history.'],
+        );
+    }
+
+    private function finishStatusChange(string $message): void
+    {
+        $this->form->reset('reason');
+
+        unset($this->auditEntries);
+
+        session()->now('message', $message);
+    }
+};
+?>
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold">
+            {{ $account->displayName() }}
+            @if ($account->isArchived())
+                <span class="ms-2 rounded bg-zinc-200 px-2 py-0.5 text-sm font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">Archived</span>
+            @endif
+        </h1>
+        <a href="{{ route('accounts.index') }}" class="btn-secondary" wire:navigate>Back to accounts</a>
+    </div>
+
+    @if (session('message'))
+        <div class="status-message">{{ session('message') }}</div>
+    @endif
+
+    <form wire:submit="save" class="card flex flex-col gap-6">
+        @include('partials.account-form-fields')
+
+        <div>
+            <label for="reason" class="form-label">Reason for this change</label>
+            <textarea id="reason" rows="2" wire:model="form.reason" class="form-input" placeholder="e.g. Fidelity raised its option fee"></textarea>
+            <p class="form-help">Required for any change, including archiving. It is kept permanently in the history below.</p>
+            @error('form.reason') <p class="form-error">{{ $message }}</p> @enderror
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+            <button type="submit" class="btn-primary">Save changes</button>
+
+            @if ($account->isArchived())
+                <button type="button" wire:click="restore" class="btn-secondary">Restore account</button>
+            @else
+                <button type="button" wire:click="archive" wire:confirm="Archive this account? Nothing is deleted and you can restore it later." class="btn-danger">Archive account</button>
+            @endif
+        </div>
+    </form>
+
+    <section class="card flex flex-col gap-4">
+        <h2 class="text-lg font-semibold">Change history</h2>
+
+        <ol class="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-700">
+            @foreach ($this->auditEntries as $entry)
+                <li wire:key="audit-{{ $entry->id }}" class="flex flex-col gap-1 py-3 text-sm">
+                    <div>
+                        <span class="font-medium">{{ $entry->event->label() }}</span>
+                        <span class="text-zinc-500 dark:text-zinc-400">
+                            {{ $entry->created_at->timezone($this->displayTimezone)->format('M j, Y g:i A T') }}
+                            @if ($entry->user) by {{ $entry->user->name }} @endif
+                        </span>
+                    </div>
+
+                    @if ($entry->reason)
+                        <div>Reason: {{ $entry->reason }}</div>
+                    @endif
+
+                    @if ($entry->event !== App\Enums\AuditEvent::Created)
+                        <ul class="text-zinc-600 dark:text-zinc-400">
+                            @foreach ($entry->readableChanges() as $change)
+                                <li>{{ $change['field'] }}: {{ $change['old'] }} → {{ $change['new'] }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </li>
+            @endforeach
+        </ol>
+    </section>
+</div>
