@@ -2,6 +2,7 @@
 
 use App\Livewire\ReportPage;
 use App\Models\StockLot;
+use App\Support\CsvExport;
 use App\Support\Money;
 use App\Support\Quantity;
 use Carbon\CarbonImmutable;
@@ -9,6 +10,7 @@ use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Positions')] class extends ReportPage
 {
@@ -54,6 +56,25 @@ new #[Title('Positions')] class extends ReportPage
     }
 
     /**
+     * The lots shown, one row each, as a CSV file.
+     */
+    public function export(): StreamedResponse
+    {
+        return CsvExport::download('stock-lots', [
+            'as_of', 'account', 'ticker', 'acquired_on', 'origin', 'shares_held', 'cost_per_share', 'cost_basis',
+        ], $this->positions->flatten()->map(fn (StockLot $lot) => [
+            $this->asOfDate,
+            $lot->account->displayName(),
+            $lot->ticker,
+            $lot->acquired_on,
+            $lot->origin->label(),
+            $lot->remainingShares(),
+            $lot->cost_per_share,
+            $lot->remainingCostBasis(),
+        ])->all());
+    }
+
+    /**
      * @param  Collection<int, StockLot>  $lots
      */
     public function totalShares(Collection $lots): Quantity
@@ -72,12 +93,15 @@ new #[Title('Positions')] class extends ReportPage
 ?>
 
 <div class="flex flex-col gap-6">
-    <div>
-        <h1 class="text-2xl font-semibold">Positions</h1>
-        <p class="text-sm text-zinc-600 dark:text-zinc-400">
-            Stock lots with shares still held at the end of {{ $this->asOfDate->format('F j, Y') }}, oldest first.
-            Cost is the actual purchase price (Method B); option premium is not included.
-        </p>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-semibold">Positions</h1>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                Stock lots with shares still held at the end of {{ $this->asOfDate->format('F j, Y') }}, oldest first.
+                Cost is the actual purchase price (Method B); option premium is not included.
+            </p>
+        </div>
+        <button type="button" wire:click="export" class="btn-secondary">Download CSV</button>
     </div>
 
     <div class="flex flex-wrap items-end gap-4">

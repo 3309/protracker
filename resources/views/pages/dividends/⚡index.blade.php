@@ -2,9 +2,11 @@
 
 use App\Livewire\ReportPage;
 use App\Models\Dividend;
+use App\Support\CsvExport;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Dividends')] class extends ReportPage
 {
@@ -27,6 +29,29 @@ new #[Title('Dividends')] class extends ReportPage
 
         return $query->orderBy('pay_date')->orderBy('ticker')->orderBy('id')->get();
     }
+
+    /**
+     * The dividends shown, one row each, as a CSV file.
+     */
+    public function export(): StreamedResponse
+    {
+        return CsvExport::download('dividends', [
+            'pay_date', 'ex_date', 'account', 'ticker', 'amount_per_share', 'eligible_shares', 'expected_amount',
+            'actual_amount', 'confirmed', 'voided', 'note',
+        ], $this->dividends->map(fn (Dividend $dividend) => [
+            $dividend->pay_date,
+            $dividend->ex_date,
+            $dividend->account->displayName(),
+            $dividend->ticker,
+            $dividend->amount_per_share,
+            $dividend->eligible_shares ?? $dividend->currentEligibleShares(),
+            $dividend->expected_amount ?? $dividend->currentExpectedAmount(),
+            $dividend->actual_amount,
+            $dividend->isConfirmed(),
+            $dividend->isVoided(),
+            $dividend->reference_note,
+        ])->all());
+    }
 };
 ?>
 
@@ -36,7 +61,10 @@ new #[Title('Dividends')] class extends ReportPage
             <h1 class="text-2xl font-semibold">Dividends</h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400">By pay date. Only confirmed amounts count as income and cash. Dividends never change stock cost.</p>
         </div>
-        <a href="{{ route('dividends.create') }}" class="btn-primary" wire:navigate>Add dividend</a>
+        <div class="flex flex-wrap gap-3">
+            <button type="button" wire:click="export" class="btn-secondary">Download CSV</button>
+            <a href="{{ route('dividends.create') }}" class="btn-primary" wire:navigate>Add dividend</a>
+        </div>
     </div>
 
     @include('partials.report-filters')

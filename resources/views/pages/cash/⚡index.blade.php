@@ -4,11 +4,13 @@ use App\Actions\Cash\BuildCashLedger;
 use App\Livewire\ReportPage;
 use App\Support\CashLedger;
 use App\Support\CashLedgerEntry;
+use App\Support\CsvExport;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Cash')] class extends ReportPage
 {
@@ -42,6 +44,34 @@ new #[Title('Cash')] class extends ReportPage
     }
 
     /**
+     * The ledger entries shown with the running balance, as a CSV file. The
+     * first row is the balance brought forward.
+     */
+    public function export(): ?StreamedResponse
+    {
+        if ($this->reportingPeriod === null) {
+            return null;
+        }
+
+        return CsvExport::download('cash-ledger', [
+            'date', 'settlement_date', 'account', 'type', 'description', 'gross', 'fees', 'cash_amount', 'balance',
+        ], [
+            [$this->reportingPeriod->start, null, null, 'Balance brought forward', null, null, null, null, $this->ledger->totalBefore($this->reportingPeriod)],
+            ...$this->rows->map(fn (array $row) => [
+                $row['entry']->date,
+                $row['entry']->settlementDate,
+                $this->accountNames[$row['entry']->accountId] ?? '',
+                $row['entry']->category->label(),
+                $row['entry']->description,
+                $row['entry']->gross,
+                $row['entry']->fees->isZero() ? $row['entry']->fees : Money::zero()->minus($row['entry']->fees),
+                $row['entry']->amount(),
+                $row['balance'],
+            ])->all(),
+        ]);
+    }
+
+    /**
      * @return array<int, string>
      */
     #[Computed]
@@ -61,6 +91,7 @@ new #[Title('Cash')] class extends ReportPage
             </p>
         </div>
         <div class="flex flex-wrap gap-3">
+            <button type="button" wire:click="export" class="btn-secondary">Download CSV</button>
             <a href="{{ route('cash.reconciliation', ['account' => $account]) }}" class="btn-secondary" wire:navigate>Reconcile with broker</a>
             <a href="{{ route('cash.movements.create') }}" class="btn-primary" wire:navigate>Add deposit, withdrawal or other</a>
         </div>

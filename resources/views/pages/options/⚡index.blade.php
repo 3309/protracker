@@ -1,11 +1,14 @@
 <?php
 
 use App\Livewire\ReportPage;
+use App\Models\OptionEvent;
 use App\Models\OptionPosition;
+use App\Support\CsvExport;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Options')] class extends ReportPage
 {
@@ -32,6 +35,68 @@ new #[Title('Options')] class extends ReportPage
         return $query->orderBy('expires_on')->orderBy('underlying')->orderBy('id')->get();
     }
 
+    /**
+     * The positions shown, one row each, as a CSV file.
+     */
+    public function export(): StreamedResponse
+    {
+        return CsvExport::download('option-positions', [
+            'option', 'account', 'underlying', 'type', 'strike', 'expires_on', 'opened_on', 'origin', 'contracts',
+            'open_contracts', 'multiplier', 'premium_per_share', 'premium_received', 'opening_fees', 'voided', 'note',
+        ], $this->positions->map(fn (OptionPosition $position) => [
+            $position->description(),
+            $position->account->displayName(),
+            $position->underlying,
+            $position->option_type,
+            $position->strike,
+            $position->expires_on,
+            $position->opened_on,
+            $position->origin->label(),
+            $position->contracts,
+            $position->openContracts(),
+            $position->multiplier,
+            $position->premium_per_share,
+            $position->premiumReceived(),
+            $position->opening_fees,
+            $position->isVoided(),
+            $position->reference_note,
+        ])->all());
+    }
+
+    /**
+     * Every event (buy to close, expiry, assignment, roll) of the positions
+     * shown, as a CSV file.
+     */
+    public function exportEvents(): StreamedResponse
+    {
+        $events = OptionEvent::query()
+            ->with(['position', 'account'])
+            ->whereIn('option_position_id', $this->positions->modelKeys())
+            ->orderBy('event_date')
+            ->orderBy('id')
+            ->get();
+
+        return CsvExport::download('option-events', [
+            'event_date', 'settlement_date', 'account', 'option', 'event', 'contracts', 'price_per_share', 'fees',
+            'premium_kept', 'closing_cost', 'gross_pl', 'net_pl', 'voided', 'note',
+        ], $events->map(fn (OptionEvent $event) => [
+            $event->event_date,
+            $event->settlement_date,
+            $event->account->displayName(),
+            $event->position->description(),
+            $event->event_type->label(),
+            $event->contracts,
+            $event->price_per_share,
+            $event->fees,
+            $event->allocated_premium,
+            $event->closingCost(),
+            $event->grossProfit(),
+            $event->netProfit(),
+            $event->isVoided(),
+            $event->reference_note,
+        ])->all());
+    }
+
     public function isPastExpiration(OptionPosition $position): bool
     {
         return $position->isPastExpiration($this->today());
@@ -56,7 +121,11 @@ new #[Title('Options')] class extends ReportPage
 <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between gap-4">
         <h1 class="text-2xl font-semibold">Options</h1>
-        <a href="{{ route('options.create') }}" class="btn-primary" wire:navigate>Sell to open</a>
+        <div class="flex flex-wrap gap-3">
+            <button type="button" wire:click="export" class="btn-secondary">Download positions CSV</button>
+            <button type="button" wire:click="exportEvents" class="btn-secondary">Download events CSV</button>
+            <a href="{{ route('options.create') }}" class="btn-primary" wire:navigate>Sell to open</a>
+        </div>
     </div>
 
     <div class="flex flex-wrap items-end gap-4">

@@ -33,7 +33,8 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Private files (backups, sample statements) are never served over the web.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

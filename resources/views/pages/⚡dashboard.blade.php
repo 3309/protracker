@@ -9,6 +9,7 @@ use App\Models\Account;
 use App\Models\BrokerBalance;
 use App\Models\OptionPosition;
 use App\Models\Setting;
+use App\Support\CsvExport;
 use App\Support\DataQualityAlerts;
 use App\Support\FeeReport;
 use App\Support\Money;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as BaseCollection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Dashboard')] class extends ReportPage
 {
@@ -110,6 +112,21 @@ new #[Title('Dashboard')] class extends ReportPage
     public function fees(): ?FeeReport
     {
         return $this->reportingPeriod === null ? null : FeeReport::for($this->reportingPeriod, $this->filteredAccountIds(), $this->tickerFilter());
+    }
+
+    /**
+     * Every fee in the period, one row each, as a CSV file.
+     */
+    public function exportFees(): ?StreamedResponse
+    {
+        if ($this->fees === null) {
+            return null;
+        }
+
+        return CsvExport::download('fees', ['date', 'account', 'ticker', 'type', 'amount'], [
+            ...$this->fees->items->sortBy('date')->map(fn (array $item) => [$item['date'], $item['accountName'], $item['ticker'], $item['type'], $item['amount']])->all(),
+            ['Total', null, null, null, $this->fees->total()],
+        ]);
     }
 
     /**
@@ -441,7 +458,10 @@ new #[Title('Dashboard')] class extends ReportPage
     @if ($this->fees !== null)
         {{-- Fees --}}
         <section class="flex flex-col gap-3">
-            <h2 class="text-lg font-semibold">Fees paid · {{ $this->fees->total()->format() }}</h2>
+            <div class="flex items-center justify-between gap-4">
+                <h2 class="text-lg font-semibold">Fees paid · {{ $this->fees->total()->format() }}</h2>
+                <button type="button" wire:click="exportFees" class="btn-secondary">Download CSV</button>
+            </div>
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 @foreach (['By month' => $this->fees->byMonth(), 'By type' => $this->fees->byType(), 'By ticker' => $this->fees->byTicker(), 'By account' => $this->fees->byAccount()] as $heading => $groups)
                     <div class="card flex flex-col gap-2 text-sm" wire:key="fees-{{ $heading }}">

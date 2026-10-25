@@ -4,11 +4,13 @@ use App\Livewire\ReportPage;
 use App\Models\Dividend;
 use App\Models\OptionEvent;
 use App\Models\StockSaleAllocation;
+use App\Support\CsvExport;
 use App\Support\Money;
 use App\Support\RealizedProfit;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Realized P/L')] class extends ReportPage
 {
@@ -76,6 +78,44 @@ new #[Title('Realized P/L')] class extends ReportPage
     {
         return $this->realized->optionTotals();
     }
+
+    /**
+     * One section of the report (stocks, options or dividends) as a CSV
+     * file, with the section total as the last row.
+     */
+    public function export(string $section): StreamedResponse
+    {
+        return match ($section) {
+            'stocks' => CsvExport::download('realized-stocks', [
+                'sold_on', 'account', 'ticker', 'lot_bought_on', 'shares', 'proceeds', 'cost', 'gross_pl', 'fees', 'net_pl',
+            ], [
+                ...$this->stockPieces->map(fn (StockSaleAllocation $piece) => [
+                    $piece->sold_on, $piece->account->displayName(), $piece->ticker, $piece->lot->acquired_on, $piece->shares,
+                    $piece->proceeds, $piece->cost, $piece->grossProfit(), $piece->fees(), $piece->netProfit(),
+                ])->all(),
+                ['Total', null, null, null, null, null, null, $this->stockTotals['gross'], $this->stockTotals['fees'], $this->stockTotals['net']],
+            ]),
+            'options' => CsvExport::download('realized-options', [
+                'closed_on', 'account', 'option', 'event', 'contracts', 'premium_kept', 'closing_cost', 'gross_pl', 'fees', 'net_pl',
+            ], [
+                ...$this->optionCloses->map(fn (OptionEvent $event) => [
+                    $event->event_date, $event->account->displayName(), $event->position->description(), $event->event_type->label(), $event->contracts,
+                    $event->allocated_premium, $event->closingCost(), $event->grossProfit(), $event->totalFees(), $event->netProfit(),
+                ])->all(),
+                ['Total', null, null, null, null, null, null, $this->optionTotals['gross'], $this->optionTotals['fees'], $this->optionTotals['net']],
+            ]),
+            'dividends' => CsvExport::download('realized-dividends', [
+                'paid_on', 'account', 'ticker', 'ex_date', 'expected_amount', 'received_amount',
+            ], [
+                ...$this->dividends->map(fn (Dividend $dividend) => [
+                    $dividend->pay_date, $dividend->account->displayName(), $dividend->ticker, $dividend->ex_date,
+                    $dividend->expected_amount, $dividend->actual_amount,
+                ])->all(),
+                ['Total', null, null, null, null, $this->dividendTotal],
+            ]),
+            default => abort(404),
+        };
+    }
 };
 ?>
 
@@ -115,7 +155,10 @@ new #[Title('Realized P/L')] class extends ReportPage
         </div>
 
         <section class="flex flex-col gap-3">
-            <h2 class="text-lg font-semibold">Stocks</h2>
+            <div class="flex items-center justify-between gap-4">
+                <h2 class="text-lg font-semibold">Stocks</h2>
+                <button type="button" wire:click="export('stocks')" class="btn-secondary">Download CSV</button>
+            </div>
 
             @if ($this->stockPieces->isEmpty())
                 <div class="card">No shares were sold in this period.</div>
@@ -168,7 +211,10 @@ new #[Title('Realized P/L')] class extends ReportPage
         </section>
 
         <section class="flex flex-col gap-3">
-            <h2 class="text-lg font-semibold">Options</h2>
+            <div class="flex items-center justify-between gap-4">
+                <h2 class="text-lg font-semibold">Options</h2>
+                <button type="button" wire:click="export('options')" class="btn-secondary">Download CSV</button>
+            </div>
 
             @if ($this->optionCloses->isEmpty())
                 <div class="card">No option contracts were closed in this period.</div>
@@ -221,7 +267,10 @@ new #[Title('Realized P/L')] class extends ReportPage
         </section>
 
         <section class="flex flex-col gap-3">
-            <h2 class="text-lg font-semibold">Dividends</h2>
+            <div class="flex items-center justify-between gap-4">
+                <h2 class="text-lg font-semibold">Dividends</h2>
+                <button type="button" wire:click="export('dividends')" class="btn-secondary">Download CSV</button>
+            </div>
 
             @if ($this->dividends->isEmpty())
                 <div class="card">No confirmed dividends were paid in this period.</div>
