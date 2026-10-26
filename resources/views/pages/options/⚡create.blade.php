@@ -2,6 +2,8 @@
 
 use App\Livewire\Forms\SellToOpenForm;
 use App\Models\Account;
+use App\Support\CoveredCallCapacity;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -22,6 +24,10 @@ new #[Title('Sell to open')] class extends Component
     {
         $position = $this->form->store();
 
+        if ($position === null) {
+            return;
+        }
+
         session()->flash('message', "Sold to open: {$position->contracts} × {$position->description()}.");
 
         $this->redirectRoute('options.show', $position, navigate: true);
@@ -35,6 +41,15 @@ new #[Title('Sell to open')] class extends Component
     {
         return Account::query()->active()->orderBy('nickname')->get();
     }
+
+    /**
+     * @return array{date: CarbonImmutable, multiplier: int, choices: list<CoveredCallCapacity>, selected: CoveredCallCapacity|null}|null
+     */
+    #[Computed]
+    public function coveredCall(): ?array
+    {
+        return $this->form->coveredCallAvailability();
+    }
 };
 ?>
 
@@ -47,10 +62,10 @@ new #[Title('Sell to open')] class extends Component
     </div>
 
     <form wire:submit="save" class="card flex flex-col gap-6">
-        @include('partials.sell-to-open-fields', ['accounts' => $this->accounts])
+        @include('partials.sell-to-open-fields', ['accounts' => $this->accounts, 'coveredCall' => $this->coveredCall, 'coveredCallCheck' => true])
 
         <div class="flex gap-3">
-            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Record sale</button>
+            <button type="submit" class="btn-primary" wire:loading.attr="disabled" @disabled($this->coveredCall !== null && $this->coveredCall['choices'] === [])>Record sale</button>
             <a href="{{ route('options.index') }}" class="btn-secondary" wire:navigate>Cancel</a>
         </div>
     </form>

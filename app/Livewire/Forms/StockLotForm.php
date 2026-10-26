@@ -9,12 +9,15 @@ use App\Exceptions\InsufficientSharesException;
 use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\Account;
 use App\Models\StockLot;
+use App\Models\StockSaleAllocation;
 use App\Support\InputFormat;
 use App\Support\Money;
 use App\Support\Quantity;
 use App\Support\UnitPrice;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Form;
+use Throwable;
 
 /**
  * Enters or corrects a stock lot held on the reporting start date.
@@ -40,6 +43,16 @@ class StockLotForm extends Form
     public string $reference_note = '';
 
     public string $reason = '';
+
+    /**
+     * Set when a correction would change the realized profit of recorded
+     * sales; it is saved only once this has been confirmed.
+     *
+     * @var array{tickers: string, before: string, after: string}|null
+     */
+    public ?array $realizedChange = null;
+
+    public bool $confirmRealizedChange = false;
 
     public function setStockLot(StockLot $stockLot): void
     {
@@ -119,6 +132,10 @@ class StockLotForm extends Form
      * Save a correction and recalculate the ticker's sales. Returns false,
      * with an error on the shares field, when the correction would leave a
      * recorded sale without enough shares.
+     *
+     * When the correction changes the realized profit of sales already
+     * recorded, nothing is saved until that change has been shown and
+     * confirmed (see $realizedChange).
      */
     public function update(): bool
     {
@@ -131,23 +148,62 @@ class StockLotForm extends Form
         }
 
         $attributes = $this->lotAttributes();
+        $tickers = array_values(array_unique([$lot->ticker, $attributes['ticker']]));
+        $before = $this->realizedProfitOfSales($lot->account_id, $tickers);
+
+        DB::beginTransaction();
 
         try {
             app(RebuildStockAllocations::class)->afterChange(
                 $lot->account_id,
-                [$lot->ticker, $attributes['ticker']],
+                $tickers,
                 fn () => $lot->withAuditReason($this->reason)->update($attributes),
             );
+
+            $after = $this->realizedProfitOfSales($lot->account_id, $tickers);
         } catch (InsufficientSharesException $exception) {
+            DB::rollBack();
             $lot->refresh();
             $this->addError('shares', $exception->getMessage());
 
             return false;
+        } catch (Throwable $exception) {
+            DB::rollBack();
+
+            throw $exception;
         }
 
-        $this->reset('reason');
+        $change = ['tickers' => implode(', ', $tickers), 'before' => $before->format(), 'after' => $after->format()];
+
+        if ($before->cents !== $after->cents && ! ($this->confirmRealizedChange && $this->realizedChange === $change)) {
+            DB::rollBack();
+            $lot->refresh();
+            $this->realizedChange = $change;
+            $this->confirmRealizedChange = false;
+
+            return false;
+        }
+
+        DB::commit();
+
+        $this->reset('reason', 'realizedChange', 'confirmRealizedChange');
 
         return true;
+    }
+
+    /**
+     * Net realized profit of the recorded sales of these tickers in the
+     * account.
+     *
+     * @param  list<string>  $tickers
+     */
+    private function realizedProfitOfSales(int $accountId, array $tickers): Money
+    {
+        return StockSaleAllocation::query()
+            ->where('account_id', $accountId)
+            ->whereIn('ticker', $tickers)
+            ->get()
+            ->reduce(fn (Money $total, StockSaleAllocation $piece) => $total->plus($piece->netProfit()), Money::zero());
     }
 
     /**

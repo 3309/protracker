@@ -111,6 +111,12 @@ new #[Title('Edit opening stock lot')] class extends Component
         <x-alert level="info" title="Voided">This stock lot was voided. It no longer counts in any total and cannot be changed. Its history is shown below.</x-alert>
     @else
         <form wire:submit="save" class="card flex flex-col gap-6">
+            <div>
+                <span class="form-label">Account</span>
+                <p class="mt-1 text-sm">{{ $stockLot->account->displayName() }}</p>
+                <p class="form-help">To move this lot to another account, void it and add it again in that account.</p>
+            </div>
+
             @include('partials.stock-lot-fields')
 
             <div>
@@ -119,6 +125,21 @@ new #[Title('Edit opening stock lot')] class extends Component
                 <p class="form-help">Required for any change, including voiding. It is kept permanently in the history below.</p>
                 @error('form.reason') <p class="form-error">{{ $message }}</p> @enderror
             </div>
+
+            @if ($form->realizedChange)
+                <x-alert level="warning" title="This changes realized profit">
+                    <p>
+                        Shares from this lot were already sold. With this correction, the realized profit on the recorded
+                        {{ $form->realizedChange['tickers'] }} sales in this account changes from
+                        <strong>{{ $form->realizedChange['before'] }}</strong> to <strong>{{ $form->realizedChange['after'] }}</strong>.
+                        Nothing has been saved yet.
+                    </p>
+                    <label class="mt-2 flex items-center gap-2">
+                        <input type="checkbox" wire:model="form.confirmRealizedChange" class="rounded border-zinc-300 dark:border-zinc-700">
+                        I understand, save the correction and update the realized profit
+                    </label>
+                </x-alert>
+            @endif
 
             <div class="flex flex-wrap gap-3">
                 <button type="submit" class="btn-primary" wire:loading.attr="disabled">Save changes</button>

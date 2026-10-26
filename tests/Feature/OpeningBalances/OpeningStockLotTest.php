@@ -193,14 +193,45 @@ describe('lots that sales have used', function () {
         expect($this->lot->fresh()->shares->format())->toBe('100');
     });
 
-    it('recalculates the sale when its cost is corrected', function () {
+    it('recalculates the sale when its cost is corrected, once the realized profit change is confirmed', function () {
         Livewire::test('pages::opening-balances.stock-lots.edit', ['stockLot' => $this->lot])
             ->set('form.cost_per_share', '40')
             ->set('form.reason', 'Statement shows $40')
             ->call('save')
-            ->assertHasNoErrors();
+            ->set('form.confirmRealizedChange', true)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSee('Stock lot saved.');
 
         expect(StockSaleAllocation::sole()->grossProfit()->format())->toBe('$960.00');
+    });
+
+    it('shows the realized profit change and saves nothing until it is confirmed', function () {
+        Livewire::test('pages::opening-balances.stock-lots.edit', ['stockLot' => $this->lot])
+            ->set('form.cost_per_share', '40')
+            ->set('form.reason', 'Statement shows $40')
+            ->call('save')
+            ->assertSee('This changes realized profit')
+            ->assertSeeInOrder(['changes from', '$160.00', 'to', '$960.00'])
+            ->assertDontSee('Stock lot saved.');
+
+        expect($this->lot->fresh()->cost_per_share->toDecimal())->toBe('50')
+            ->and(StockSaleAllocation::sole()->grossProfit()->format())->toBe('$160.00')
+            ->and($this->lot->auditEntries()->count())->toBe(1);
+    });
+
+    it('asks again when the correction is changed after the warning', function () {
+        Livewire::test('pages::opening-balances.stock-lots.edit', ['stockLot' => $this->lot])
+            ->set('form.cost_per_share', '40')
+            ->set('form.reason', 'Statement shows $40')
+            ->call('save')
+            ->set('form.confirmRealizedChange', true)
+            ->set('form.cost_per_share', '30')
+            ->call('save')
+            ->assertSeeInOrder(['changes from', '$160.00', 'to', '$1,760.00'])
+            ->assertDontSee('Stock lot saved.');
+
+        expect($this->lot->fresh()->cost_per_share->toDecimal())->toBe('50');
     });
 
     it('re-runs oldest-first matching when an older lot is added', function () {

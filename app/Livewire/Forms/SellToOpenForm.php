@@ -2,13 +2,17 @@
 
 namespace App\Livewire\Forms;
 
+use App\Actions\Options\EnsureCallsCovered;
 use App\Actions\Options\SaveOptionTrade;
 use App\Enums\OptionType;
 use App\Exceptions\InsufficientSharesException;
 use App\Exceptions\OptionPositionException;
+use App\Exceptions\UncoveredCallException;
 use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\Account;
 use App\Models\OptionPosition;
+use App\Models\Setting;
+use App\Support\CoveredCallCapacity;
 use App\Support\InputFormat;
 use App\Support\MarketCalendar;
 use App\Support\Money;
@@ -134,21 +138,51 @@ class SellToOpenForm extends Form
         ];
     }
 
-    public function store(): OptionPosition
+    /**
+     * Record the sale. A call must be covered by shares in the account that
+     * are not already covering another call; otherwise nothing is saved and
+     * null is returned with an error on the contracts field.
+     */
+    public function store(): ?OptionPosition
     {
         $this->validate();
 
         $account = Account::findOrFail((int) $this->account_id);
+        $attributes = ['account_id' => $account->id, ...$this->positionAttributes($account)];
 
-        return app(SaveOptionTrade::class)->open([
-            'account_id' => $account->id,
-            ...$this->positionAttributes($account),
-        ]);
+        if ($attributes['option_type'] !== OptionType::Call) {
+            return app(SaveOptionTrade::class)->open($attributes);
+        }
+
+        $openedOn = CarbonImmutable::parse($this->opened_on);
+        $capacity = CoveredCallCapacity::for($account->id, $attributes['underlying'], $openedOn);
+        $maxContracts = $capacity->maxContracts($attributes['multiplier']);
+
+        if ($attributes['contracts'] > $maxContracts) {
+            $this->addError('contracts', $this->notCoveredMessage($capacity, $account, $maxContracts));
+
+            return null;
+        }
+
+        try {
+            return app(EnsureCallsCovered::class)->afterChange(
+                $account->id,
+                $attributes['underlying'],
+                $openedOn,
+                CarbonImmutable::parse($this->expires_on),
+                fn () => app(SaveOptionTrade::class)->open($attributes),
+            );
+        } catch (UncoveredCallException $exception) {
+            $this->addError('contracts', $exception->getMessage());
+
+            return null;
+        }
     }
 
     /**
      * Save a correction. Returns false, with an error on the matching field,
-     * when it would conflict with closes already recorded.
+     * when it would conflict with closes already recorded, or when it would
+     * make a sold call need more shares than are free to cover it.
      */
     public function update(): bool
     {
@@ -160,11 +194,29 @@ class SellToOpenForm extends Form
             return false;
         }
 
+        $attributes = $this->positionAttributes($position->account);
+        $save = fn () => app(SaveOptionTrade::class)->updatePosition($position, $attributes, $this->reason);
+
         try {
-            app(SaveOptionTrade::class)->updatePosition($position, $this->positionAttributes($position->account), $this->reason);
+            if ($this->coversMoreShares($position, $attributes)) {
+                app(EnsureCallsCovered::class)->afterChange(
+                    $position->account_id,
+                    $attributes['underlying'],
+                    CarbonImmutable::parse($attributes['opened_on']),
+                    CarbonImmutable::parse($attributes['expires_on']),
+                    $save,
+                );
+            } else {
+                $save();
+            }
         } catch (OptionPositionException|InsufficientSharesException $exception) {
             $position->refresh();
             $this->addError($this->positionErrorField($exception), $exception->getMessage());
+
+            return false;
+        } catch (UncoveredCallException $exception) {
+            $position->refresh();
+            $this->addError('contracts', $exception->getMessage());
 
             return false;
         }
@@ -173,6 +225,83 @@ class SellToOpenForm extends Form
         $this->reset('reason');
 
         return true;
+    }
+
+    /**
+     * For a new sold call: the tickers in the chosen account with enough
+     * free shares on the trade date (today while it is blank) for at least
+     * one contract, and the figures for the chosen ticker. Null for a put,
+     * when correcting a trade, or before an account is chosen. Only a guide
+     * for the form; store() checks again.
+     *
+     * @return array{date: CarbonImmutable, multiplier: int, choices: list<CoveredCallCapacity>, selected: CoveredCallCapacity|null}|null
+     */
+    public function coveredCallAvailability(): ?array
+    {
+        if ($this->optionPosition !== null || $this->option_type !== OptionType::Call->value || preg_match('/^\d+$/', $this->account_id) !== 1) {
+            return null;
+        }
+
+        $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->opened_on) === 1 && checkdate((int) substr($this->opened_on, 5, 2), (int) substr($this->opened_on, 8, 2), (int) substr($this->opened_on, 0, 4))
+            ? CarbonImmutable::parse($this->opened_on)
+            : CarbonImmutable::parse(CarbonImmutable::now(Setting::current()->display_timezone)->format('Y-m-d'));
+        $multiplier = preg_match('/^\d{1,6}$/', $this->multiplier) === 1 && (int) $this->multiplier > 0 ? (int) $this->multiplier : 100;
+        $accountId = (int) $this->account_id;
+        $ticker = $this->normalizedTicker($this->underlying);
+
+        return [
+            'date' => $date,
+            'multiplier' => $multiplier,
+            'choices' => CoveredCallCapacity::eligible($accountId, $date, $multiplier),
+            'selected' => $ticker !== '' ? CoveredCallCapacity::for($accountId, $ticker, $date) : null,
+        ];
+    }
+
+    /**
+     * Whether a correction makes a sold call reserve shares it did not
+     * reserve before: a put changed to a call, another ticker, more shares,
+     * or an earlier trade date. Other corrections (premium, fees, notes) are
+     * saved without checking, so calls imported before shares were entered
+     * can still be corrected.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function coversMoreShares(OptionPosition $position, array $attributes): bool
+    {
+        if ($position->isLong() || $attributes['option_type'] !== OptionType::Call) {
+            return false;
+        }
+
+        return $position->option_type !== OptionType::Call
+            || $attributes['underlying'] !== $position->underlying
+            || $position->contracts * $position->multiplier < $attributes['contracts'] * $attributes['multiplier']
+            || $attributes['opened_on'] < $position->opened_on->format('Y-m-d');
+    }
+
+    private function notCoveredMessage(CoveredCallCapacity $capacity, Account $account, int $maxContracts): string
+    {
+        $where = "{$account->displayName()} on {$capacity->date->format('M j, Y')}";
+
+        if ($maxContracts === 0) {
+            return sprintf(
+                'No %s shares are free to cover a call in %s: %s held, %s already covering open calls. Each contract needs %s shares.',
+                $capacity->ticker,
+                $where,
+                $capacity->held->format(),
+                $capacity->committed()->format(),
+                $this->multiplier,
+            );
+        }
+
+        return sprintf(
+            'Only %s %s shares are free in %s, enough for %d more %s. You asked for %s.',
+            $capacity->available()->format(),
+            $capacity->ticker,
+            $where,
+            $maxContracts,
+            $maxContracts === 1 ? 'contract' : 'contracts',
+            $this->contracts,
+        );
     }
 
     private function notBeforeOpenedOn(string $message): Closure

@@ -128,6 +128,7 @@ new #[Title('Positions')] class extends ReportPage
                         <th class="text-right">Shares held</th>
                         <th class="text-right">Cost / share</th>
                         <th class="text-right">Cost basis</th>
+                        <th><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
                 @foreach ($this->positions as $key => $lots)
@@ -143,6 +144,11 @@ new #[Title('Positions')] class extends ReportPage
                                 <td class="num">{{ $lot->remainingShares()->format() }}</td>
                                 <td class="num">{{ $lot->cost_per_share->format() }}</td>
                                 <td class="num">{{ $lot->remainingCostBasis()->format() }}</td>
+                                <td class="text-right">
+                                    @if ($lot->origin === App\Enums\PositionOrigin::OpeningBalance)
+                                        <a href="{{ route('opening-balances.stock-lots.edit', $lot) }}" class="link" wire:navigate>Edit</a>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                         <tr class="bg-zinc-50 font-semibold dark:bg-zinc-800/50">
@@ -152,6 +158,7 @@ new #[Title('Positions')] class extends ReportPage
                             <td class="num">{{ $this->totalShares($lots)->format() }}</td>
                             <td></td>
                             <td class="num">{{ $this->totalCostBasis($lots)->format() }}</td>
+                            <td></td>
                         </tr>
                     </tbody>
                 @endforeach

@@ -64,6 +64,7 @@ describe('position page', function () {
     });
 
     it('records a roll and opens the new leg with its net credit', function () {
+        recordStockTrade($this->account, TradeSide::Buy, 'XYZ', '2026-02-02', '100', '50');
         $call = recordSellToOpen($this->account, OptionType::Call, 'XYZ', '52', '2026-03-20', '2026-02-23', 1, '0.80', '0.67');
 
         Livewire::test('pages::options.show', ['optionPosition' => $call])

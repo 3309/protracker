@@ -2,8 +2,11 @@
 
 namespace App\Livewire\Forms;
 
+use App\Actions\Options\EnsureCallsCovered;
 use App\Actions\Options\SaveOptionTrade;
+use App\Enums\OptionType;
 use App\Exceptions\OptionPositionException;
+use App\Exceptions\UncoveredCallException;
 use App\Livewire\Forms\Concerns\SharedFormInput;
 use App\Models\OptionPosition;
 use App\Support\InputFormat;
@@ -124,27 +127,41 @@ class RollForm extends Form
         $settlementDate = MarketCalendar::optionSettlementDate(CarbonImmutable::parse($this->event_date))->format('Y-m-d');
         $note = $this->nullIfBlank($this->reference_note);
 
+        $roll = fn () => app(SaveOptionTrade::class)->roll($position, [
+            'event_date' => $this->event_date,
+            'settlement_date' => $settlementDate,
+            'contracts' => $contracts,
+            'price_per_share' => UnitPrice::fromDecimal($this->price_per_share),
+            'fees' => $this->nullIfBlank($this->closing_fees) !== null ? Money::fromDecimal($this->closing_fees) : $feePerContract->times($contracts),
+            'reference_note' => $note,
+        ], [
+            'strike' => UnitPrice::fromDecimal($this->new_strike),
+            'expires_on' => $this->new_expires_on,
+            'opened_on' => $this->event_date,
+            'opening_settlement_date' => $settlementDate,
+            'contracts' => $newContracts,
+            'multiplier' => $position->multiplier,
+            'premium_per_share' => UnitPrice::fromDecimal($this->new_premium_per_share),
+            'opening_fees' => $this->nullIfBlank($this->new_opening_fees) !== null ? Money::fromDecimal($this->new_opening_fees) : $feePerContract->times($newContracts),
+            'reference_note' => $note,
+        ]);
+
         try {
-            $newLeg = app(SaveOptionTrade::class)->roll($position, [
-                'event_date' => $this->event_date,
-                'settlement_date' => $settlementDate,
-                'contracts' => $contracts,
-                'price_per_share' => UnitPrice::fromDecimal($this->price_per_share),
-                'fees' => $this->nullIfBlank($this->closing_fees) !== null ? Money::fromDecimal($this->closing_fees) : $feePerContract->times($contracts),
-                'reference_note' => $note,
-            ], [
-                'strike' => UnitPrice::fromDecimal($this->new_strike),
-                'expires_on' => $this->new_expires_on,
-                'opened_on' => $this->event_date,
-                'opening_settlement_date' => $settlementDate,
-                'contracts' => $newContracts,
-                'multiplier' => $position->multiplier,
-                'premium_per_share' => UnitPrice::fromDecimal($this->new_premium_per_share),
-                'opening_fees' => $this->nullIfBlank($this->new_opening_fees) !== null ? Money::fromDecimal($this->new_opening_fees) : $feePerContract->times($newContracts),
-                'reference_note' => $note,
-            ]);
+            $newLeg = $position->option_type === OptionType::Call
+                ? app(EnsureCallsCovered::class)->afterChange(
+                    $position->account_id,
+                    $position->underlying,
+                    CarbonImmutable::parse($this->event_date),
+                    CarbonImmutable::parse($this->new_expires_on),
+                    $roll,
+                )
+                : $roll();
         } catch (OptionPositionException $exception) {
             $this->addError($exception->field === 'event_date' ? 'event_date' : 'contracts', $exception->getMessage());
+
+            return null;
+        } catch (UncoveredCallException $exception) {
+            $this->addError('new_contracts', $exception->getMessage());
 
             return null;
         }
