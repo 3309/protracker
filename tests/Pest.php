@@ -14,9 +14,14 @@ use App\Models\StockTrade;
 use App\Support\MarketCalendar;
 use App\Support\Money;
 use App\Support\Quantity;
+use App\Support\TradeAssistant\TradeContext;
+use App\Support\TradeAssistant\TradeExtractor;
+use App\Support\TradeAssistant\TradeProposal;
 use App\Support\UnitPrice;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /*
@@ -221,4 +226,86 @@ function recordBuyToClose(OptionPosition $position, string $date, int $contracts
         'price_per_share' => UnitPrice::fromDecimal($price),
         'fees' => Money::fromDecimal($fee),
     ]);
+}
+
+/**
+ * An AI Trade Assistant answer in the shape TradeProposal::schema() requires.
+ * Fields given in $values are "stated" unless $statuses says otherwise; the
+ * rest are null and "missing".
+ *
+ * @param  array<string, string|null>  $values
+ * @param  array<string, string>  $statuses
+ * @param  list<string>  $questions
+ * @return array<string, mixed>
+ */
+function tradeAssistantOutput(string $action, array $values = [], array $statuses = [], array $questions = [], int $transactionCount = 1, ?string $unsupportedReason = null): array
+{
+    $fields = [];
+
+    foreach (array_keys(TradeProposal::FIELDS) as $field) {
+        $fields[$field] = [
+            'value' => $values[$field] ?? null,
+            'status' => $statuses[$field] ?? (isset($values[$field]) ? 'stated' : 'missing'),
+        ];
+    }
+
+    return [
+        'transaction_count' => $transactionCount,
+        'action' => $action,
+        'unsupported_reason' => $unsupportedReason,
+        'fields' => $fields,
+        'questions' => $questions,
+    ];
+}
+
+/**
+ * Answer every analysis with $answer (or throw it) instead of calling the
+ * real AI service. Returns the stand-in, which counts its calls.
+ *
+ * @param  array<string, mixed>|Throwable  $answer
+ */
+function fakeTradeAssistant(array|Throwable $answer): object
+{
+    $extractor = new class($answer) implements TradeExtractor
+    {
+        public int $calls = 0;
+
+        public function __construct(private array|Throwable $answer) {}
+
+        public function extract(string $description, TradeContext $context): TradeProposal
+        {
+            $this->calls++;
+
+            if ($this->answer instanceof Throwable) {
+                throw $this->answer;
+            }
+
+            return TradeProposal::fromModelOutput($this->answer, $context);
+        }
+    };
+
+    app()->instance(TradeExtractor::class, $extractor);
+
+    return $extractor;
+}
+
+/**
+ * @param  array<string, mixed>  $answer
+ */
+function analyzeTrade(array $answer, string $accountId = ''): Testable
+{
+    fakeTradeAssistant($answer);
+
+    return Livewire::test('pages::trade-assistant.index')
+        ->set('description', 'A trade described in plain English.')
+        ->set('account_id', $accountId)
+        ->call('analyze');
+}
+
+/**
+ * The review panel the page shows for its proposal.
+ */
+function reviewPanel(Testable $page, string $panel): Testable
+{
+    return Livewire::test("pages::trade-assistant.{$panel}", ['proposal' => $page->get('proposal'), 'proposalKey' => $page->get('proposalKey')]);
 }

@@ -16,7 +16,7 @@ it('opens every page in the menu and the quick actions', function () {
     preg_match('/<nav aria-label="Main".*?<\/nav>/s', (string) $html, $menu);
     preg_match_all('/href="([^"]+)"/', $menu[0] ?? '', $links);
 
-    expect($links[1])->toHaveCount(21);
+    expect($links[1])->toHaveCount(22);
 
     foreach ([...$links[1], route('stock-trades.create'), route('options.create'), route('options.buy')] as $url) {
         $this->get(html_entity_decode($url))->assertOk();

@@ -9,6 +9,7 @@
     $groups = [
         ['key' => 'overview', 'label' => 'Overview', 'links' => [
             ['label' => 'Dashboard', 'icon' => 'home', 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')],
+            ['label' => 'AI Trade Assistant', 'icon' => 'sparkles', 'url' => route('trade-assistant'), 'active' => request()->routeIs('trade-assistant')],
         ]],
         ['key' => 'stocks', 'label' => 'Stocks', 'links' => [
             ['label' => 'Positions', 'icon' => 'portfolio', 'url' => route('positions'), 'active' => request()->routeIs('positions')],

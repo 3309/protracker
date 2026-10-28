@@ -7,6 +7,7 @@ Route::redirect('/', '/dashboard')->name('home');
 
 Route::middleware('auth')->group(function () {
     Route::livewire('/dashboard', 'pages::dashboard')->name('dashboard');
+    Route::livewire('/trade-assistant', 'pages::trade-assistant.index')->name('trade-assistant');
 
     Route::livewire('/accounts', 'pages::accounts.index')->name('accounts.index');
     Route::livewire('/accounts/create', 'pages::accounts.create')->name('accounts.create');

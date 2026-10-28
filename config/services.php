@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    /*
+    | The AI Trade Assistant. "anthropic" is the only provider so far; leave
+    | AI_PROVIDER blank to switch the assistant off. The key is only used on
+    | the server and is never shown on a page or written to the logs.
+    */
+    'ai' => [
+        'provider' => env('AI_PROVIDER'),
+        'key' => env('AI_API_KEY'),
+        'model' => env('AI_MODEL', 'claude-opus-5-5'),
+        'timeout' => (int) env('AI_TIMEOUT', 30),
+        'max_retries' => (int) env('AI_MAX_RETRIES', 1),
+    ],
+
 ];

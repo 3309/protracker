@@ -16,7 +16,11 @@ use App\Models\Setting;
 use App\Models\StockLot;
 use App\Models\StockTrade;
 use App\Models\User;
+use App\Support\TradeAssistant\AnthropicTradeExtractor;
+use App\Support\TradeAssistant\TradeExtractor;
+use App\Support\TradeAssistant\UnconfiguredTradeExtractor;
 use Carbon\CarbonImmutable;
+use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +34,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(TradeExtractor::class, function (): TradeExtractor {
+            $key = (string) config('services.ai.key');
+
+            if (config('services.ai.provider') !== 'anthropic' || $key === '') {
+                return new UnconfiguredTradeExtractor;
+            }
+
+            return new AnthropicTradeExtractor(
+                $key,
+                (string) config('services.ai.model'),
+                new GuzzleClient(['timeout' => config('services.ai.timeout'), 'connect_timeout' => 10]),
+                (int) config('services.ai.max_retries'),
+            );
+        });
     }
 
     /**
