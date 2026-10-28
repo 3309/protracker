@@ -105,3 +105,18 @@ it('explains provider errors without revealing the API key', function (int $stat
     'rate limited' => [429, 'busy'],
     'server error' => [500, 'had a problem'],
 ]);
+
+it('says when the API account is out of credit', function (int $status, string $type, string $message) {
+    $error = new Response($status, ['Content-Type' => 'application/json'], json_encode(['type' => 'error', 'error' => ['type' => $type, 'message' => $message]]));
+
+    extractorAnswering([$error], $this->requests)->extract('Buy TSLA', $this->context);
+})->throws(TradeAssistantException::class, 'out of credit')->with([
+    'low balance reported as an invalid request' => [400, 'invalid_request_error', 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'],
+    'billing error' => [402, 'billing_error', 'Payment required.'],
+]);
+
+it('treats any other invalid request as a provider problem', function () {
+    $error = new Response(400, ['Content-Type' => 'application/json'], json_encode(['type' => 'error', 'error' => ['type' => 'invalid_request_error', 'message' => 'max_tokens: too large']]));
+
+    extractorAnswering([$error], $this->requests)->extract('Buy TSLA', $this->context);
+})->throws(TradeAssistantException::class, 'had a problem');

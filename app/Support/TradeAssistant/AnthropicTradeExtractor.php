@@ -6,9 +6,11 @@ use Anthropic\Beta\Messages\BetaTextBlock;
 use Anthropic\Client;
 use Anthropic\Core\Exceptions\APIConnectionException;
 use Anthropic\Core\Exceptions\APIException;
+use Anthropic\Core\Exceptions\APIStatusException;
 use Anthropic\Core\Exceptions\AuthenticationException;
 use Anthropic\Core\Exceptions\PermissionDeniedException;
 use Anthropic\Core\Exceptions\RateLimitException;
+use Anthropic\ErrorType;
 use App\Exceptions\TradeAssistantException;
 use Psr\Http\Client\ClientInterface;
 
@@ -56,6 +58,8 @@ class AnthropicTradeExtractor implements TradeExtractor
             throw TradeAssistantException::keyRejected();
         } catch (RateLimitException) {
             throw TradeAssistantException::busy();
+        } catch (APIStatusException $exception) {
+            throw $this->isOutOfCredit($exception) ? TradeAssistantException::outOfCredit() : TradeAssistantException::unavailable();
         } catch (APIConnectionException) {
             throw TradeAssistantException::unreachable();
         } catch (APIException) {
@@ -77,6 +81,18 @@ class AnthropicTradeExtractor implements TradeExtractor
         }
 
         throw TradeAssistantException::unreadable();
+    }
+
+    /**
+     * Whether the API refused the request because the account has no credit
+     * left. Anthropic reports this as a billing error, or as an invalid
+     * request whose message mentions the credit balance.
+     */
+    private function isOutOfCredit(APIStatusException $exception): bool
+    {
+        $message = is_array($exception->body) ? (string) ($exception->body['error']['message'] ?? '') : '';
+
+        return $exception->type === ErrorType::BILLING_ERROR || str_contains(strtolower($message), 'credit balance');
     }
 
     private function instructions(TradeContext $context): string

@@ -21,6 +21,11 @@ class TradeAssistantException extends Exception
         return new self('The AI service did not accept the API key. Check AI_API_KEY in the .env file and that the API account has billing set up.');
     }
 
+    public static function outOfCredit(): self
+    {
+        return new self('Your Anthropic API account is out of credit. Add credit at console.anthropic.com under Settings → Billing, wait a minute, then try again. A Claude.ai subscription does not include API use.');
+    }
+
     public static function busy(): self
     {
         return new self('The AI service is busy or your API account has reached its usage limit. Wait a minute and try again.');
