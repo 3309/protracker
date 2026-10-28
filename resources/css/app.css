@@ -6,8 +6,22 @@
 /* Dark styles follow the theme chosen in the app (the .dark class), not only the computer's setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Styles for the icon-only sidebar rail: wide screens only, while the sidebar is collapsed. */
+@custom-variant rail {
+    @media (width >= 64rem) {
+        &:where(.sidebar-collapsed *) {
+            @slot;
+        }
+    }
+}
+
 :root {
     color-scheme: light;
+    --sidebar-width: 15rem;
+}
+
+:root.sidebar-collapsed {
+    --sidebar-width: 4rem;
 }
 
 :root.dark {
@@ -123,6 +137,32 @@
 
     .muted {
         @apply text-xs text-zinc-500 dark:text-zinc-400;
+    }
+
+    /* A menu group's links; slides shut when the group is closed, and always shows in the icon-only rail. */
+    .nav-panel {
+        @apply grid grid-rows-[1fr] transition-[grid-template-rows,visibility] duration-150 motion-reduce:transition-none;
+
+        & > * {
+            @apply min-h-0 overflow-hidden;
+        }
+
+        &[data-open='false'] {
+            @apply invisible grid-rows-[0fr];
+
+            @variant rail {
+                @apply visible grid-rows-[1fr];
+            }
+        }
+    }
+
+    /* Keeps the keyboard outline inside the menu, which hides anything that spills over its edges. */
+    .nav-link:focus-visible {
+        outline-offset: -2px;
+    }
+
+    .nav-tooltip {
+        @apply pointer-events-none fixed z-50 -translate-y-1/2 rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium whitespace-nowrap text-white shadow-md dark:bg-zinc-700;
     }
 
     .status-message {
