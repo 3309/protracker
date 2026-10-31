@@ -2,24 +2,19 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
+     *
+     * Nothing is created by default: a real installation starts empty, the login is made with
+     * `php artisan app:create-user`, and fictional demo data is loaded only on request with
+     * `php artisan db:seed --class=DemoDataSeeder`.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->command?->info('Nothing to seed. Create your login with "php artisan app:create-user", or load fictional demo data with "php artisan db:seed --class=DemoDataSeeder".');
     }
 }
