@@ -1,11 +1,14 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/blank-livewire-starter-kit",
+    "name": "jothnat/protracker",
     "type": "project",
-    "description": "The official Laravel starter kit for Livewire.",
+    "description": "A self-hosted, single-user tracker for stock trades, options and the wheel strategy.",
     "keywords": [
         "laravel",
-        "framework"
+        "livewire",
+        "options",
+        "wheel-strategy",
+        "portfolio-tracker"
     ],
     "license": "MIT",
     "require": {

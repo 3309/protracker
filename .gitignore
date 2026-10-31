@@ -8,8 +8,8 @@
 /storage/pail
 /vendor
 .env
-.env.backup
-.env.production
+.env.*
+!.env.example
 .phpactor.json
 .phpunit.result.cache
 Homestead.json
@@ -38,3 +38,13 @@ yarn-error.log
 /boost.json
 /opencode.json
 /opencode.jsonc
+
+# Personal financial data: databases, backups, dumps and broker or export files, wherever they are saved.
+*.sqlite
+*.sqlite-*
+*.db
+*.sql
+*.sql.gz
+*.bak
+*.csv
+!/tests/**/*.csv
