@@ -97,11 +97,9 @@ and serves PHP sites on your computer. It's the easiest way to run Protracker on
 
    ```powershell
    cd $HOME\Herd
-   git clone https://github.com/<owner>/protracker.git protracker
+   git clone https://github.com/3309/protracker.git protracker
    cd protracker
    ```
-
-   Replace `<owner>` with the GitHub account the project is published under.
 
 3. **Run the one-step setup** (this takes a few minutes the first time):
 
@@ -139,7 +137,7 @@ Install PHP 8.5 with the extensions listed above, Composer, Node.js 22 or newer 
 Herd is also available for macOS. Then:
 
 ```bash
-git clone https://github.com/<owner>/protracker.git protracker
+git clone https://github.com/3309/protracker.git protracker
 cd protracker
 composer setup
 php artisan app:create-user
