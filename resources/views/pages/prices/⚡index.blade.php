@@ -95,7 +95,7 @@ new #[Title('Prices')] class extends ReportPage
     <div>
         <h1 class="page-title">Prices</h1>
         <p class="text-sm text-zinc-600 dark:text-zinc-400">
-            Prices you enter by hand, used to estimate unrealized profit. They are not live market quotes and never change realized profit.
+            Prices you enter by hand, and stock prices fetched with "Refresh Stock Prices" on the dashboard, used to estimate unrealized profit. They never change realized profit.
             A price older than {{ $this->prices->staleAfterDays() }} days is marked stale (you can change this in Settings).
         </p>
     </div>
@@ -245,6 +245,7 @@ new #[Title('Prices')] class extends ReportPage
                         <th>As of</th>
                         <th>For</th>
                         <th class="text-right">Price</th>
+                        <th>Source</th>
                         <th class="py-2"></th>
                     </tr>
                 </thead>
@@ -254,6 +255,7 @@ new #[Title('Prices')] class extends ReportPage
                             <td>{{ $entry->as_of->timezone($this->prices->displayTimezone())->format('M j, Y g:i A') }}</td>
                             <td>{{ $entry->description() }}</td>
                             <td class="num">{{ $entry->price->format() }}</td>
+                            <td>{{ $entry->source->label() }}</td>
                             <td class="py-2 text-right">
                                 <a href="{{ route('prices.edit', $entry) }}" class="link" wire:navigate>{{ $entry->isVoided() ? 'Voided' : 'Void' }}</a>
                             </td>

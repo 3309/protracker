@@ -6,8 +6,10 @@ use App\Enums\OptionType;
 use App\Models\OptionPosition;
 use App\Models\Price;
 use App\Models\StockLot;
+use BcMath\Number;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use RoundingMode;
 
 /**
  * Open stock and option positions today, valued with the latest manual
@@ -29,7 +31,7 @@ use Illuminate\Support\Collection;
 final readonly class OpenPositionsReport
 {
     /**
-     * @param  Collection<int, array{accountId: int, accountName: string, ticker: string, lots: \Illuminate\Database\Eloquent\Collection<int, StockLot>, shares: Quantity, cost: Money, price: Price|null, stale: bool, marketValue: Money|null, unrealized: Money|null}>  $stocks
+     * @param  Collection<int, array{accountId: int, accountName: string, ticker: string, lots: \Illuminate\Database\Eloquent\Collection<int, StockLot>, shares: Quantity, cost: Money, costPerShare: UnitPrice, price: Price|null, stale: bool, marketValue: Money|null, unrealized: Money|null, unrealizedPercent: string|null}>  $stocks
      * @param  Collection<int, array{position: OptionPosition, openContracts: int, openPremium: Money, openFees: Money, price: Price|null, stale: bool, costToClose: Money|null, unrealized: Money|null, daysToExpiry: int, underlyingPrice: Price|null, underlyingStale: bool, moneyness: string|null, putObligation: Money}>  $options
      */
     private function __construct(public Collection $stocks, public Collection $options, public PriceBook $prices) {}
@@ -57,6 +59,7 @@ final readonly class OpenPositionsReport
                 $cost = $group->reduce(fn (Money $total, StockLot $lot) => $total->plus($lot->remainingCostBasis()), Money::zero());
                 $price = $prices->forStock($first->ticker);
                 $marketValue = $price?->price->totalFor($shares);
+                $unrealized = $marketValue?->minus($cost);
 
                 return [
                     'accountId' => $first->account_id,
@@ -65,10 +68,12 @@ final readonly class OpenPositionsReport
                     'lots' => $group->values(),
                     'shares' => $shares,
                     'cost' => $cost,
+                    'costPerShare' => self::costPerShare($cost, $shares),
                     'price' => $price,
                     'stale' => $price !== null && $prices->isStale($price),
                     'marketValue' => $marketValue,
-                    'unrealized' => $marketValue?->minus($cost),
+                    'unrealized' => $unrealized,
+                    'unrealizedPercent' => $unrealized === null ? null : self::percentOf($unrealized, $cost),
                 ];
             })
             ->sortBy(fn (array $row) => $row['accountName'].'|'.$row['ticker'])
@@ -120,7 +125,37 @@ final readonly class OpenPositionsReport
     }
 
     /**
-     * "In the money", "at the money" or "out of the money" for a short option,
+     * The cost basis per share still held, to 4 decimal places.
+     */
+    private static function costPerShare(Money $cost, Quantity $shares): UnitPrice
+    {
+        $perShare = (new Number($cost->cents))
+            ->div(100, 6)
+            ->div($shares->toNumber(), 6)
+            ->round(4, RoundingMode::HalfAwayFromZero);
+
+        return UnitPrice::fromDecimal($perShare->value);
+    }
+
+    /**
+     * An amount as a percentage of the cost, to 2 decimal places, e.g.
+     * "12.34" or "-5.10"; null when there is no cost to compare with.
+     */
+    private static function percentOf(Money $amount, Money $cost): ?string
+    {
+        if ($cost->isZero()) {
+            return null;
+        }
+
+        return (new Number($amount->cents))
+            ->mul(100)
+            ->div($cost->cents, 6)
+            ->round(2, RoundingMode::HalfAwayFromZero)
+            ->value;
+    }
+
+    /**
+     * "In the money", "at the money"or "out of the money" for a short option,
      * from the underlying price.
      */
     private static function moneyness(OptionPosition $position, Price $underlying): string

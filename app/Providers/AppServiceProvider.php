@@ -16,6 +16,9 @@ use App\Models\Setting;
 use App\Models\StockLot;
 use App\Models\StockTrade;
 use App\Models\User;
+use App\Support\MarketData\StockQuoteProvider;
+use App\Support\MarketData\TiingoStockQuoteProvider;
+use App\Support\MarketData\UnconfiguredStockQuoteProvider;
 use App\Support\TradeAssistant\AnthropicTradeExtractor;
 use App\Support\TradeAssistant\TradeExtractor;
 use App\Support\TradeAssistant\UnconfiguredTradeExtractor;
@@ -47,6 +50,16 @@ class AppServiceProvider extends ServiceProvider
                 new GuzzleClient(['timeout' => config('services.ai.timeout'), 'connect_timeout' => 10]),
                 (int) config('services.ai.max_retries'),
             );
+        });
+
+        $this->app->bind(StockQuoteProvider::class, function (): StockQuoteProvider {
+            $key = (string) config('services.market_data.key');
+
+            if (config('services.market_data.provider') !== 'tiingo' || $key === '') {
+                return new UnconfiguredStockQuoteProvider;
+            }
+
+            return new TiingoStockQuoteProvider($key, (int) config('services.market_data.timeout'));
         });
     }
 

@@ -39,6 +39,18 @@ it('values stock with the latest price: (price − cost) × shares still held', 
         ->and($stock['unrealized']?->format())->toBe('$300.00');
 });
 
+it('gives the cost per share and unrealized percentage of the shares still held', function () {
+    recordStockTrade($this->account, TradeSide::Buy, 'XYZ', '2026-01-12', '1', '10');
+    recordStockTrade($this->account, TradeSide::Buy, 'XYZ', '2026-01-13', '2', '10.50');
+    stockPrice('XYZ', '9.50');
+
+    $stock = ($this->report)()->stocks->sole();
+
+    expect($stock['costPerShare']->format())->toBe('$10.3333')
+        ->and($stock['unrealized']?->format())->toBe('-$2.50')
+        ->and($stock['unrealizedPercent'])->toBe('-8.06');
+});
+
 it('values a short option as open premium less opening fees less the cost to close', function () {
     recordSellToOpen($this->account, OptionType::Put, 'XYZ', '50', '2026-04-17', '2026-03-02', 1, '1.20', '0.67');
     optionPrice('XYZ', OptionType::Put, '50', '2026-04-17', '0.30');

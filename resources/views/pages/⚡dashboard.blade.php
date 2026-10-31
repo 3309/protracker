@@ -1,6 +1,8 @@
 <?php
 
 use App\Actions\Cash\BuildCashLedger;
+use App\Actions\Prices\RefreshStockPrices;
+use App\Exceptions\MarketDataException;
 use App\Actions\Wheel\BuildWheelCycles;
 use App\Enums\Broker;
 use App\Enums\OpeningStatus;
@@ -65,6 +67,23 @@ new #[Title('Dashboard')] class extends ReportPage
     public function open(): OpenPositionsReport
     {
         return OpenPositionsReport::build($this->filteredAccountIds(), $this->tickerFilter(), $this->prices, $this->today());
+    }
+
+    /**
+     * Fetch the latest price of every stock held. Only prices are saved;
+     * no trade, lot or cash record changes.
+     */
+    public function refreshStockPrices(RefreshStockPrices $refreshStockPrices): void
+    {
+        try {
+            $result = $refreshStockPrices->handle($this->today());
+
+            session()->now('stock-price-refresh', ['level' => $result->level(), 'message' => $result->message()]);
+        } catch (MarketDataException $exception) {
+            session()->now('stock-price-refresh', ['level' => 'critical', 'message' => $exception->getMessage()]);
+        }
+
+        unset($this->prices, $this->open, $this->alerts);
     }
 
     #[Computed]
@@ -340,13 +359,22 @@ new #[Title('Dashboard')] class extends ReportPage
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="section-title">
                 Open positions
-                <x-tip text="Unrealized P/L is the gain or loss on positions you still hold, if you closed them at the prices you entered. It is not money received yet." />
+                <x-tip text="Unrealized P/L is the gain or loss on positions you still hold, if you closed them at the latest prices. It is not money received yet." />
             </h2>
-            <a href="{{ route('prices.index') }}" class="link text-sm" wire:navigate>Enter prices</a>
+            <div class="flex flex-wrap items-center gap-3">
+                <a href="{{ route('prices.index') }}" class="link text-sm" wire:navigate>Enter prices</a>
+                <button type="button" wire:click="refreshStockPrices" wire:loading.attr="disabled" wire:target="refreshStockPrices" class="btn-secondary">
+                    <span wire:loading.remove wire:target="refreshStockPrices">Refresh Stock Prices</span>
+                    <span wire:loading wire:target="refreshStockPrices">Refreshing…</span>
+                </button>
+            </div>
         </div>
+        @if (session('stock-price-refresh'))
+            <x-alert :level="session('stock-price-refresh')['level']">{{ session('stock-price-refresh')['message'] }}</x-alert>
+        @endif
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <x-stat-card label="Stock market value" icon="portfolio" :href="route('positions')"
-                :hint="$this->open->stocksNeedingPrices() > 0 ? $this->open->stocksNeedingPrices().' '.Str::plural('stock', $this->open->stocksNeedingPrices()).' need a price and are left out' : 'From prices you entered'">
+                :hint="$this->open->stocksNeedingPrices() > 0 ? $this->open->stocksNeedingPrices().' '.Str::plural('stock', $this->open->stocksNeedingPrices()).' need a price and are left out' : 'From the latest prices'">
                 <x-money :amount="$this->open->stockMarketValueTotal()" tone="plain" />
             </x-stat-card>
             <x-stat-card label="Stock unrealized P/L" icon="portfolio" :href="route('positions')"
@@ -458,30 +486,59 @@ new #[Title('Dashboard')] class extends ReportPage
                             <th>Ticker</th>
                             <th class="text-right">Shares</th>
                             <th class="text-right">Cost basis <x-tip text="What you paid for the shares still held, including purchase fees." /></th>
+                            <th class="text-right">Cost / share</th>
                             <th class="text-right">Price</th>
                             <th class="text-right">Market value</th>
                             <th class="text-right">Unrealized</th>
+                            <th class="text-right">Unrealized %</th>
+                            <th>Last quote update</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($this->open->stocks as $stock)
+                            @php($percent = $stock['unrealizedPercent'])
                             <tr wire:key="open-stock-{{ $stock['accountId'] }}-{{ $stock['ticker'] }}">
                                 <td>{{ $stock['accountName'] }}</td>
                                 <td class="font-semibold">{{ $stock['ticker'] }}</td>
                                 <td class="num">{{ $stock['shares']->format() }}</td>
                                 <td class="num"><x-money :amount="$stock['cost']" tone="plain" /></td>
+                                <td class="num">{{ $stock['costPerShare']->format() }}</td>
                                 <td class="num">
                                     @if ($stock['price'])
                                         {{ $stock['price']->price->format() }}
-                                        <span class="block text-xs {{ $stock['stale'] ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-500' }}">
-                                            {{ $stock['stale'] ? 'Stale · ' : '' }}{{ $stock['price']->as_of->timezone($this->prices->displayTimezone())->format('M j, g:i A') }}
-                                        </span>
+                                        @if ($stock['stale'])
+                                            <span class="block text-xs font-medium text-amber-700 dark:text-amber-400">Stale price</span>
+                                        @endif
                                     @else
-                                        <x-badge tone="amber">Price needed</x-badge>
+                                        <x-badge tone="amber">Price unavailable</x-badge>
                                     @endif
                                 </td>
                                 <td class="num"><x-money :amount="$stock['marketValue']" tone="plain" /></td>
                                 <td class="num"><x-money :amount="$stock['unrealized']" /></td>
+                                <td @class([
+                                    'num whitespace-nowrap',
+                                    'text-zinc-500 dark:text-zinc-400' => $percent === null || $stock['unrealized']->isZero(),
+                                    'text-green-700 dark:text-green-400' => $percent !== null && ! $stock['unrealized']->isZero() && ! $stock['unrealized']->isNegative(),
+                                    'text-red-700 dark:text-red-400' => $percent !== null && $stock['unrealized']->isNegative(),
+                                ])>
+                                    @if ($percent === null)
+                                        —
+                                    @else
+                                        {{ ! $stock['unrealized']->isNegative() && ! $stock['unrealized']->isZero() ? '+' : '' }}{{ $percent }}%
+                                    @endif
+                                </td>
+                                <td class="text-xs whitespace-nowrap">
+                                    @if ($stock['price'])
+                                        <span @class(['text-amber-700 dark:text-amber-400' => $stock['stale']])>
+                                            {{ $stock['price']->as_of->timezone($this->prices->displayTimezone())->format('M j, g:i A') }}
+                                        </span>
+                                        <span class="block text-zinc-500 dark:text-zinc-400">
+                                            {{ $stock['price']->source->label() }}@if ($stock['price']->retrieved_at) · fetched {{ $stock['price']->retrieved_at->timezone($this->prices->displayTimezone())->format('M j, g:i A') }}@endif
+                                        </span>
+                                    @else
+                                        <span class="text-zinc-500 dark:text-zinc-400">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -767,6 +824,6 @@ new #[Title('Dashboard')] class extends ReportPage
     </section>
 
     <p class="text-xs text-zinc-500 dark:text-zinc-400">
-        This is a tracking tool, not tax software or investment advice. Prices are entered by hand and are not live quotes.
+        This is a tracking tool, not tax software or investment advice. Prices are entered by hand or fetched with "Refresh Stock Prices"; fetched prices come from the IEX exchange and can differ slightly from your broker's.
     </p>
 </div>

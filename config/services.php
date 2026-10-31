@@ -48,4 +48,16 @@ return [
         'max_retries' => (int) env('AI_MAX_RETRIES', 1),
     ],
 
+    /*
+    | Automatic stock prices for the "Refresh Stock Prices" button. "tiingo"
+    | is the only provider so far; leave MARKET_DATA_PROVIDER blank to switch
+    | it off. The key is only used on the server and is never shown on a page
+    | or written to the logs.
+    */
+    'market_data' => [
+        'provider' => env('MARKET_DATA_PROVIDER'),
+        'key' => env('MARKET_DATA_API_KEY'),
+        'timeout' => (int) env('MARKET_DATA_TIMEOUT', 10),
+    ],
+
 ];

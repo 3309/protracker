@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\CalendarDate;
 use App\Enums\OptionType;
 use App\Enums\PriceInstrument;
+use App\Enums\PriceSource;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\Voidable;
 use App\Support\UnitPrice;
@@ -16,9 +17,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
 /**
- * A manually entered price for a stock or one option contract, as of a
- * moment in time. Prices are kept as a history; the latest one is used.
- * They are not live quotes and never affect realized profit.
+ * A price for a stock or one option contract, as of a moment in time:
+ * entered by hand, or a stock quote fetched from a market-data provider.
+ * Prices are kept as a history; the latest one is used. They never affect
+ * realized profit, trades, lots or cash.
  *
  * @property int $id
  * @property PriceInstrument $instrument
@@ -27,17 +29,28 @@ use Illuminate\Support\Carbon;
  * @property UnitPrice|null $strike
  * @property CarbonImmutable|null $expires_on
  * @property UnitPrice $price
+ * @property PriceSource $source
  * @property Carbon $as_of
+ * @property Carbon|null $retrieved_at
  * @property string|null $reference_note
  * @property Carbon|null $voided_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['instrument', 'ticker', 'option_type', 'strike', 'expires_on', 'price', 'as_of', 'reference_note'])]
+#[Fillable(['instrument', 'ticker', 'option_type', 'strike', 'expires_on', 'price', 'source', 'as_of', 'retrieved_at', 'reference_note'])]
 class Price extends Model
 {
     /** @use HasFactory<PriceFactory> */
     use Auditable, HasFactory, Voidable;
+
+    /**
+     * Defaults matching the database defaults.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'source' => 'manual',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -52,7 +65,9 @@ class Price extends Model
             'strike' => UnitPrice::class,
             'expires_on' => CalendarDate::class,
             'price' => UnitPrice::class,
+            'source' => PriceSource::class,
             'as_of' => 'datetime',
+            'retrieved_at' => 'datetime',
             'voided_at' => 'datetime',
         ];
     }
