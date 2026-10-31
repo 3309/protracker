@@ -1,8 +1,9 @@
 {{--
     Sidebar state: the narrow icon-only rail on wide screens, which menu groups are closed, the labels shown beside
     rail icons, and the slide-in menu on phones and tablets. Choices are kept per user in this browser only.
-    Livewire resets the <html> attributes on every page change, so the layout calls window.sidebar.restore()
-    straight after the sidebar to put them back before the page is drawn.
+    One button in the top bar does both jobs (window.sidebar.toggle). Livewire resets the <html> attributes on every
+    page change, so the layout calls window.sidebar.restore() straight after the sidebar to put them back before the
+    page is drawn.
 --}}
 <script>
     (() => {
@@ -72,23 +73,40 @@
 
                 document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
 
-                document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
-                    const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
-
-                    button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-                    button.setAttribute('aria-label', label);
-                    button.dataset.tooltip = label;
-                });
+                this.syncToggle();
 
                 document.querySelectorAll('[data-nav-section]').forEach((section) => {
                     setSectionOpen(section, section.hasAttribute('data-current') || ! closed.includes(section.dataset.navSection));
                 });
             },
 
-            toggleCollapsed() {
-                write('collapsed', ! isCollapsed());
-                hideTooltip();
-                this.restore();
+            /** The top bar's menu button: shrinks or widens the sidebar on wide screens, opens or closes the menu on small ones. */
+            toggle() {
+                if (wide.matches) {
+                    write('collapsed', ! isCollapsed());
+                    hideTooltip();
+                    this.restore();
+                } else if (document.getElementById('sidebar')?.hasAttribute('data-open')) {
+                    this.closeMenu();
+                } else {
+                    this.openMenu();
+                }
+            },
+
+            /** Keeps the menu button's label and state in step with what a click would do. */
+            syncToggle() {
+                const open = wide.matches
+                    ? ! isCollapsed()
+                    : document.getElementById('sidebar')?.hasAttribute('data-open') === true;
+                const label = wide.matches
+                    ? (open ? 'Collapse sidebar' : 'Expand sidebar')
+                    : (open ? 'Close menu' : 'Open menu');
+
+                document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
+                    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    button.setAttribute('aria-label', label);
+                    button.title = label;
+                });
             },
 
             toggleSection(button) {
@@ -103,7 +121,8 @@
             openMenu() {
                 document.getElementById('sidebar').dataset.open = '';
                 document.body.classList.add('overflow-hidden');
-                document.querySelector('[data-sidebar-close]')?.focus();
+                document.querySelector('#sidebar a')?.focus();
+                this.syncToggle();
             },
 
             closeMenu() {
@@ -112,7 +131,8 @@
                 if (sidebar?.hasAttribute('data-open')) {
                     delete sidebar.dataset.open;
                     document.body.classList.remove('overflow-hidden');
-                    document.querySelector('[data-sidebar-open]')?.focus();
+                    document.querySelector('[data-sidebar-toggle]')?.focus();
+                    this.syncToggle();
                 }
             },
         };
@@ -139,6 +159,7 @@
         wide.addEventListener('change', () => {
             hideTooltip();
             window.sidebar.closeMenu();
+            window.sidebar.syncToggle();
         });
 
         document.documentElement.classList.toggle('sidebar-collapsed', isCollapsed());

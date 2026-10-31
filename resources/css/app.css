@@ -17,6 +17,7 @@
 
 :root {
     color-scheme: light;
+    --topbar-height: 3.5rem;
     --sidebar-width: 15rem;
 }
 

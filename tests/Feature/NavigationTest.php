@@ -43,6 +43,21 @@ it('keeps the menu group of the page being viewed open', function (string $url, 
     'dashboard' => fn () => [route('dashboard'), 'overview'],
 ]);
 
+it('puts the sidebar button, theme and log out in the top bar and only navigation in the sidebar', function () {
+    $html = strstr((string) $this->get(route('dashboard'))->assertOk()->getContent(), '<body');
+
+    preg_match('/<header.*?<\/header>/s', $html, $topBar);
+    preg_match('/<aside\s+id="sidebar".*?<\/aside>/s', $html, $sidebar);
+
+    expect(substr_count($html, 'data-sidebar-toggle'))->toBe(1)
+        ->and(substr_count($html, 'data-theme-button'))->toBe(1)
+        ->and(substr_count($html, 'action="'.route('logout').'"'))->toBe(1)
+        ->and($topBar[0])->toContain('data-sidebar-toggle', 'data-theme-button')
+        ->toMatch('/<form method="POST" action="'.preg_quote(route('logout'), '/').'">\s*<input type="hidden" name="_token"/')
+        ->and($sidebar[0])->toContain('<nav aria-label="Main"')
+        ->not->toContain('data-theme-button', route('logout'));
+});
+
 it('keeps sidebar choices separate for each user', function () {
     $this->get(route('dashboard'))->assertOk()->assertSee("'sidebar:{$this->user->id}:'", false);
 });
