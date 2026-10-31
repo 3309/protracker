@@ -45,7 +45,7 @@ class PreviewImport
                 'account_id' => $account->id,
                 'user_id' => $userId,
                 'format' => $formatType,
-                'original_filename' => basename($filename),
+                'original_filename' => basename(str_replace('\\', '/', $filename)),
                 'file_sha256' => hash('sha256', $contents),
                 'status' => ImportBatchStatus::Previewed,
                 'row_count' => count($file['rows']),
