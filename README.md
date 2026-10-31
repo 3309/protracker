@@ -40,10 +40,21 @@ records stay in a single database file on that computer.
   details the AI read, and save it through the normal entry form.
 - Light, dark or system theme, and a sidebar that collapses to icons.
 
-The accounting rules, such as treating option premium as option profit rather than reducing
-the stock's cost, are written up with worked examples in
-[docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md). Each worked example is covered by an automated
-test.
+### How the numbers are worked out
+
+- **Option premium is option profit.** It isn't subtracted from the cost of shares you get
+  through assignment. Shares from an assigned put cost the strike price.
+- **Shares are sold first in, first out**, separately for each account and ticker, and each
+  sale's profit is worked out per lot.
+- **Fees are kept separate.** Every trade has its own fee, and results are shown both before
+  and after fees.
+- **Dividends count only shares held before the ex-date.** They're separate income and don't
+  change share cost or option profit.
+- **Share lots and dividend eligibility go by trade date; the cash ledger goes by settlement
+  date.**
+
+Each of these rules is checked by automated tests built from worked examples. For example, a
+full wheel cycle with fees must net exactly $448.66.
 
 ## Requirements
 

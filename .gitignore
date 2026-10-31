@@ -39,6 +39,11 @@ yarn-error.log
 /opencode.json
 /opencode.jsonc
 
+# Personal planning notes, kept on the owner's computer only.
+PROJECT_SPEC.md
+project_spec.md
+Claude_Code_Prompt_Protacker.md
+
 # Personal financial data: databases, backups, dumps and broker or export files, wherever they are saved.
 *.sqlite
 *.sqlite-*
