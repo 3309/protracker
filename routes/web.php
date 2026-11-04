@@ -54,6 +54,10 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/positions', 'pages::positions')->name('positions');
     Route::livewire('/realized', 'pages::realized.index')->name('realized.index');
 
+    Route::livewire('/alpaca', 'pages::alpaca.account')->name('alpaca.account');
+    Route::livewire('/alpaca/quote', 'pages::alpaca.quote')->name('alpaca.quote');
+    Route::livewire('/alpaca/options', 'pages::alpaca.options')->name('alpaca.options');
+
     Route::livewire('/settings', 'pages::settings.general')->name('settings');
     Route::view('/settings/password', 'settings.password')->name('settings.password');
 });

@@ -36,5 +36,7 @@
         <env name="AI_API_KEY" value="" force="true"/>
         <env name="MARKET_DATA_PROVIDER" value="" force="true"/>
         <env name="MARKET_DATA_API_KEY" value="" force="true"/>
+        <env name="ALPACA_SERVICE_URL" value="http://127.0.0.1:3001" force="true"/>
+        <env name="ALPACA_SERVICE_TOKEN" value="" force="true"/>
     </php>
 </phpunit>

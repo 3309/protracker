@@ -16,6 +16,7 @@ use App\Models\Setting;
 use App\Models\StockLot;
 use App\Models\StockTrade;
 use App\Models\User;
+use App\Services\AlpacaService;
 use App\Support\MarketData\StockQuoteProvider;
 use App\Support\MarketData\TiingoStockQuoteProvider;
 use App\Support\MarketData\UnconfiguredStockQuoteProvider;
@@ -61,6 +62,16 @@ class AppServiceProvider extends ServiceProvider
 
             return new TiingoStockQuoteProvider($key, (int) config('services.market_data.timeout'));
         });
+
+        $this->app->bind(AlpacaService::class, fn (): AlpacaService => new AlpacaService(
+            (string) config('services.alpaca.url'),
+            (string) config('services.alpaca.token'),
+            (int) config('services.alpaca.connect_timeout'),
+            (int) config('services.alpaca.timeout'),
+            (int) config('services.alpaca.quote_cache_seconds'),
+            (int) config('services.alpaca.option_chain_cache_seconds'),
+            (int) config('services.alpaca.option_expirations_cache_seconds'),
+        ));
     }
 
     /**

@@ -53,3 +53,18 @@ Claude_Code_Prompt_Protacker.md
 *.bak
 *.csv
 !/tests/**/*.csv
+
+# Temporary working folders and screenshots, which can show account details. Images the app itself uses stay tracked.
+/tmp/
+/temp/
+/.tmp/
+/scratchpad/
+/screenshots/
+/shots*/
+*.tmp
+[Ss]creenshot*.png
+[Ss]creenshot*.jpg
+[Ss]creenshot*.jpeg
+[Ss]creenshot*.webp
+!/public/**/[Ss]creenshot*
+!/resources/**/[Ss]creenshot*
