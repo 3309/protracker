@@ -37,6 +37,11 @@
         ['key' => 'reports', 'label' => 'Reports', 'links' => [
             ['label' => 'Realized P/L', 'icon' => 'trend', 'url' => route('realized.index'), 'active' => request()->routeIs('realized.*')],
         ]],
+        ['key' => 'alpaca', 'label' => 'Alpaca (paper)', 'links' => [
+            ['label' => 'Paper account', 'icon' => 'bank', 'url' => route('alpaca.account'), 'active' => request()->routeIs('alpaca.account')],
+            ['label' => 'Stock quote', 'icon' => 'tag', 'url' => route('alpaca.quote'), 'active' => request()->routeIs('alpaca.quote')],
+            ['label' => 'Option chain', 'icon' => 'options', 'url' => route('alpaca.options'), 'active' => request()->routeIs('alpaca.options')],
+        ]],
         ['key' => 'settings', 'label' => 'Settings', 'links' => [
             ['label' => 'Accounts', 'icon' => 'bank', 'url' => route('accounts.index'), 'active' => request()->routeIs('accounts.*')],
             ['label' => 'Opening balances', 'icon' => 'flag', 'url' => route('opening-balances.index'), 'active' => request()->routeIs('opening-balances.*')],

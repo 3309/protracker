@@ -60,4 +60,20 @@ return [
         'timeout' => (int) env('MARKET_DATA_TIMEOUT', 10),
     ],
 
+    /*
+    | The separate read-only Node.js service over an Alpaca paper account. It
+    | must run on this computer. The token is only used on the server and is
+    | never shown on a page or written to the logs. Set a cache time to 0 to
+    | fetch every time.
+    */
+    'alpaca' => [
+        'url' => env('ALPACA_SERVICE_URL', 'http://127.0.0.1:3001'),
+        'token' => env('ALPACA_SERVICE_TOKEN'),
+        'connect_timeout' => (int) env('ALPACA_SERVICE_CONNECT_TIMEOUT', 2),
+        'timeout' => (int) env('ALPACA_SERVICE_TIMEOUT', 8),
+        'quote_cache_seconds' => (int) env('ALPACA_QUOTE_CACHE_SECONDS', 15),
+        'option_chain_cache_seconds' => (int) env('ALPACA_OPTION_CHAIN_CACHE_SECONDS', 60),
+        'option_expirations_cache_seconds' => (int) env('ALPACA_OPTION_EXPIRATIONS_CACHE_SECONDS', 3600),
+    ],
+
 ];

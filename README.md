@@ -188,6 +188,7 @@ template it's copied from.
 | `SESSION_LIFETIME`, `SESSION_ENCRYPT` | How long a login lasts (in minutes), and session encryption, which is on by default. |
 | `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` | The optional AI Trade Assistant. See below. |
 | `MARKET_DATA_PROVIDER`, `MARKET_DATA_API_KEY` | Optional automatic stock prices. See below. |
+| `ALPACA_SERVICE_URL`, `ALPACA_SERVICE_TOKEN` | The optional read-only Alpaca paper account section. See below. |
 
 After changing `.env`, run `php artisan config:clear` if the change doesn't seem to apply.
 
@@ -235,6 +236,109 @@ labelled separately from prices you enter by hand.
   automatic prices aren't set up, and you can still enter prices by hand.
 - **What's sent to Tiingo:** only the ticker symbols being priced.
 - These prices aren't live quotes and never change realized profit or loss.
+
+## Optional: Alpaca paper account (read-only)
+
+The **Alpaca (paper)** section of the menu shows an [Alpaca](https://alpaca.markets/) paper
+trading account: connection status, balances, stock and options positions, open orders, stock
+quotes and option chains.
+
+- **It can't trade.** There's no way to place, change or cancel an order from Protracker.
+- **It's kept apart from your records.** Alpaca data never becomes a trade, a lot or a cash entry
+  and never affects your Fidelity, Robinhood or other accounts. Quotes and option chains are
+  saved briefly in the cache so they load faster; nothing else from Alpaca is stored.
+
+It gets its data from a **separate Node.js service** that you run yourself. That service isn't
+part of Protracker and holds your Alpaca keys, so Protracker never sees them. Protracker only
+holds a token for talking to the service, and only ever sends it to the same computer.
+
+### 1. Set up the Node.js service
+
+You need Node.js 22 or newer and Alpaca **paper** API keys, from the Paper Trading section of
+<https://app.alpaca.markets>. In the service's folder:
+
+1. Install what it needs with `npm install`.
+2. Create a token, and copy the long line of text it prints:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+3. Copy `.env.example` to `.env`, open it in your editor and fill it in:
+
+   ```
+   APCA_API_KEY_ID=your-paper-key-id
+   APCA_API_SECRET_KEY=your-paper-secret-key
+   API_TOKEN=the-token-you-just-created
+   API_PORT=3001
+   ```
+
+   Set `API_PORT` as shown, because the service uses port 3100 if you leave it out.
+
+### 2. Start and stop the service
+
+**To start it,** run this in the service's folder and leave the window open:
+
+```bash
+npm run api:start
+```
+
+It's ready when it says it's listening on `http://127.0.0.1:3001`. It only accepts connections
+from your own computer. It doesn't start by itself, so start it again after a restart.
+
+**To stop it,** press `Ctrl+C` in that window. If the window is gone, stop it from PowerShell:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object CommandLine -like '*start-api.js*' | ForEach-Object { Stop-Process -Id $_.ProcessId }
+```
+
+The rest of Protracker works normally while the service is stopped. The Alpaca pages just say
+that the data is unavailable.
+
+### 3. Connect Protracker
+
+Add this to Protracker's `.env`, using the same token as `API_TOKEN` above:
+
+```
+ALPACA_SERVICE_URL=http://127.0.0.1:3001
+ALPACA_SERVICE_TOKEN=the-token-you-just-created
+```
+
+Then open **Alpaca (paper) → Paper account**. Both badges under **Connection status** should
+say **Connected**. If the app doesn't pick up the change, run `php artisan config:clear`.
+
+- **To turn it off**, leave `ALPACA_SERVICE_TOKEN` empty. The pages then explain that the service
+  isn't set up, and no requests are made.
+- **Cache times (optional):** `ALPACA_QUOTE_CACHE_SECONDS` defaults to 15,
+  `ALPACA_OPTION_CHAIN_CACHE_SECONDS` to 60 and `ALPACA_OPTION_EXPIRATIONS_CACHE_SECONDS` to 3600.
+  Use 0 to fetch every time. **Refresh** on a page always fetches again, and a page marks a saved
+  copy.
+- **Timeouts (optional):** `ALPACA_SERVICE_CONNECT_TIMEOUT` defaults to 2 seconds and
+  `ALPACA_SERVICE_TIMEOUT` to 8.
+
+### What the pages show
+
+- **The free data plans have limits.** Stock quotes normally come from one exchange (IEX), so
+  the price can differ from what your broker shows, and outside market hours the bid and ask can
+  be far apart. A quote marked **Stale** is more than 15 minutes old. Option prices are usually
+  estimates, not actual exchange quotes, and the page says so when they are.
+- **Option chains load one expiration at a time.** Enter a symbol, choose a date from its
+  expirations, then choose calls, puts or both. Each date lists strikes in order, with the call
+  and put side by side. The page says how many contracts it's showing and whether more exist.
+- **All expirations, nearest first** loads up to 500 contracts at a time. **Show later
+  expirations** continues from where it stopped.
+- **Limits on requests:** the service allows 60 requests a minute by default, and each load of
+  the Paper account page uses 4. If you reach the limit, the page says how long to wait.
+
+### If something goes wrong
+
+| What the page says | What to check |
+| --- | --- |
+| The service is not set up yet | `ALPACA_SERVICE_TOKEN` is empty in Protracker's `.env`. |
+| Could not be reached or took too long | The service isn't running, or the port in `ALPACA_SERVICE_URL` doesn't match `API_PORT`. |
+| Did not accept the API token | `ALPACA_SERVICE_TOKEN` and the service's `API_TOKEN` are different. |
+| Alpaca rejected its keys | The Alpaca keys in the service's `.env` are wrong or expired, or they're live keys, which don't work on the paper service. |
+| Must point to this computer | `ALPACA_SERVICE_URL` is set to another computer. Use `127.0.0.1` or `localhost`. |
 
 ## Backing up and restoring
 
