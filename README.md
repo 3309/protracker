@@ -269,7 +269,7 @@ You need Node.js 22 or newer and Alpaca **paper** API keys, from the Paper Tradi
    ```
    APCA_API_KEY_ID=your-paper-key-id
    APCA_API_SECRET_KEY=your-paper-secret-key
-   API_TOKEN=the-token-you-just-created
+   API_TOKEN=your-token-here
    API_PORT=3001
    ```
 
@@ -301,7 +301,7 @@ Add this to Protracker's `.env`, using the same token as `API_TOKEN` above:
 
 ```
 ALPACA_SERVICE_URL=http://127.0.0.1:3001
-ALPACA_SERVICE_TOKEN=the-token-you-just-created
+ALPACA_SERVICE_TOKEN=your-token-here
 ```
 
 Then open **Alpaca (paper) → Paper account**. Both badges under **Connection status** should
